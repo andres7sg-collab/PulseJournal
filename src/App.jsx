@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const STORAGE_KEY = "calorie_history_v16";
+const STORAGE_KEY = "calorie_history_v17";
 const TDEE_BASE = 2300;
 const PROT_GOAL = 145;
 const HEIGHT_CM = 186;
@@ -52,12 +52,12 @@ const GYM_STEPS = {
 const GYM_MAP = Object.fromEntries(GYM_ACTIVITIES.map(a => [a.id, a.cals]));
 
 const INITIAL_WEIGHTS = [
-  { date: "2025-04-26", kg: 82.15, note: "Tarde, ref. inicio semana 1" },
+  { date: "2026-04-26", kg: 82.15, note: "Tarde, ref. inicio semana 1" },
 ];
 
 const SEED_DAYS = [
   {
-    date: "2025-04-16", label: "jue, 16 abr", gym: "weights_60",
+    date: "2026-04-16", label: "jue, 16 abr", gym: "weights_60",
     meals: [
       { id: 1, name: "Medio bocata omelette + jamón serrano", cals: 380, protein: 22, carbs: 32, fat: 17, time: "13:00", note: "~100g pan, 2 huevos, 40g jamón" },
       { id: 2, name: "Coca-Cola Light", cals: 2, protein: 0, carbs: 0.1, fat: 0, time: "13:00", note: "330ml" },
@@ -68,7 +68,7 @@ const SEED_DAYS = [
     ],
   },
   {
-    date: "2025-04-20", label: "lun, 20 abr", gym: "weights_pasos_11k",
+    date: "2026-04-20", label: "lun, 20 abr", gym: "weights_pasos_11k",
     meals: [
       { id: 101, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
       { id: 102, name: "Jugo de naranja (~150ml) + creatina 5g", cals: 55, protein: 1, carbs: 13, fat: 0, time: "08:30", note: "Medio vaso" },
@@ -82,7 +82,7 @@ const SEED_DAYS = [
     ],
   },
   {
-    date: "2025-04-21", label: "mar, 21 abr", gym: "pasos_9700_flexiones",
+    date: "2026-04-21", label: "mar, 21 abr", gym: "pasos_9700_flexiones",
     meals: [
       { id: 201, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
       { id: 202, name: "Bowl yogurt griego + granola", cals: 350, protein: 16, carbs: 48, fat: 8, time: "08:30", note: "150g yogurt, 60g granola" },
@@ -95,7 +95,7 @@ const SEED_DAYS = [
     ],
   },
   {
-    date: "2025-04-22", label: "mié, 22 abr", gym: "weights_pasos_9500",
+    date: "2026-04-22", label: "mié, 22 abr", gym: "weights_pasos_9500",
     meals: [
       { id: 301, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
       { id: 302, name: "Bowl yogurt griego + granola + blueberries + creatina 5g", cals: 390, protein: 18, carbs: 52, fat: 8, time: "08:30", note: "150g yogurt, 60g granola, blueberries" },
@@ -110,7 +110,7 @@ const SEED_DAYS = [
     ],
   },
   {
-    date: "2025-04-23", label: "jue, 23 abr", gym: "pasos_9062",
+    date: "2026-04-23", label: "jue, 23 abr", gym: "pasos_9062",
     meals: [
       { id: 401, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
       { id: 402, name: "Bowl yogurt griego + blueberries", cals: 200, protein: 16, carbs: 22, fat: 4, time: "08:30", note: "150g yogurt 0%, sin granola" },
@@ -127,7 +127,7 @@ const SEED_DAYS = [
     ],
   },
   {
-    date: "2025-04-24", label: "vie, 24 abr", gym: "weights90_pasos_11k",
+    date: "2026-04-24", label: "vie, 24 abr", gym: "weights90_pasos_11k",
     meals: [
       { id: 501, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
       { id: 502, name: "Flauta tortilla de huevo y patatas con tomate", cals: 420, protein: 14, carbs: 48, fat: 18, time: "09:30", note: "Flauta mediana" },
@@ -143,7 +143,7 @@ const SEED_DAYS = [
     ],
   },
   {
-    date: "2025-04-25", label: "sáb, 25 abr", gym: "pasos_9300",
+    date: "2026-04-25", label: "sáb, 25 abr", gym: "pasos_9300",
     meals: [
       { id: 601, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:30", note: "Sin azúcar" },
       { id: 602, name: "Flauta jamón serrano", cals: 310, protein: 20, carbs: 28, fat: 12, time: "09:30", note: "~100g pan, 40g jamón" },
@@ -155,7 +155,7 @@ const SEED_DAYS = [
     ],
   },
   {
-    date: "2025-04-26", label: "dom, 26 abr", gym: "weights_pasos_15k",
+    date: "2026-04-26", label: "dom, 26 abr", gym: "weights_pasos_15k",
     meals: [
       { id: 701, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
       { id: 702, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "10:00", note: "Sin azúcar" },
@@ -170,7 +170,7 @@ const SEED_DAYS = [
     ],
   },
   {
-    date: "2025-04-27", label: "lun, 27 abr", gym: "pasos_4681",
+    date: "2026-04-27", label: "lun, 27 abr", gym: "pasos_4681",
     meals: [
       { id: 801, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
       { id: 802, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "10:00", note: "Sin azúcar" },
@@ -183,7 +183,7 @@ const SEED_DAYS = [
     ],
   },
   {
-    date: "2025-04-28", label: "mar, 28 abr", gym: "weights_pasos_5900",
+    date: "2026-04-28", label: "mar, 28 abr", gym: "weights_pasos_5900",
     meals: [
       { id: 901, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
       { id: 902, name: "Yogurt griego Oikos sin azúcar", cals: 90, protein: 10, carbs: 4, fat: 4, time: "08:30", note: "~125g" },
@@ -199,7 +199,7 @@ const SEED_DAYS = [
     ],
   },
   {
-    date: "2025-04-29", label: "mié, 29 abr", gym: "pasos_9233",
+    date: "2026-04-29", label: "mié, 29 abr", gym: "pasos_9233",
     meals: [
       { id: 1001, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
       { id: 1002, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "10:00", note: "Sin azúcar" },
@@ -213,7 +213,7 @@ const SEED_DAYS = [
     ],
   },
   {
-    date: "2025-04-30", label: "jue, 30 abr", gym: "weights75_pasos_11k",
+    date: "2026-04-30", label: "jue, 30 abr", gym: "weights75_pasos_11k",
     meals: [
       { id: 1101, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
       { id: 1102, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "10:00", note: "Sin azúcar" },
@@ -344,7 +344,7 @@ export default function App() {
   if (!history || !weights) return (
     <div style={{ background: "#080b0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <style>{css}</style>
-      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#2a3848" }}>Cargando…</span>
+      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#8899aa" }}>Cargando…</span>
     </div>
   );
 
@@ -415,21 +415,21 @@ export default function App() {
   const avgBalance = Math.round(totalBalance / trend.length);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#080b0f", fontFamily: "'JetBrains Mono',monospace", color: "#c8d8e8", paddingBottom: 60 }}>
+    <div style={{ minHeight: "100vh", background: "#080b0f", fontFamily: "'JetBrains Mono',monospace", color: "#c8d8e8", paddingBottom: "calc(env(safe-area-inset-bottom) + 60px)" }}>
       <style>{css}</style>
 
-      <div style={{ background: "#060910", borderBottom: "1px solid #0e1520", padding: "18px 20px 0" }}>
+      <div style={{ background: "#060910", borderBottom: "1px solid #0e1520", paddingTop: "calc(env(safe-area-inset-top) + 18px)", paddingLeft: "20px", paddingRight: "20px", paddingBottom: "0" }}>
         <div style={{ maxWidth: 500, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
             <div>
-              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".18em", textTransform: "uppercase", marginBottom: 4 }}>PULSO JOURNAL</div>
+              <div style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".18em", textTransform: "uppercase", marginBottom: 4 }}>PULSO JOURNAL</div>
               <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: "-.02em", color: "#e8f4ff" }}>
                 {day.label || fmtDate(day.date)}
               </h1>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: "#38bdf8", lineHeight: 1 }}>{Math.round(t.cals)}</div>
-              <div style={{ fontSize: 9, color: "#1e3040", marginTop: 2 }}>kcal ingeridas</div>
+              <div style={{ fontSize: 9, color: "#8899aa", marginTop: 2 }}>kcal ingeridas</div>
               {saving && <div className="saving">guardando…</div>}
             </div>
           </div>
@@ -437,7 +437,7 @@ export default function App() {
             {/* Proteína */}
             <div style={{ padding: "7px 12px", background: "#0a0f14", borderRadius: 7, border: "1px solid #0e1a20" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 9, color: "#2a4050", letterSpacing: ".1em", textTransform: "uppercase" }}>Proteína</span>
+                <span style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Proteína</span>
                 <span style={{ fontSize: 10, color: protColor }}>{Math.round(t.protein)}g / {PROT_GOAL}g</span>
               </div>
               <div className="prot-bar"><div className="prot-fill" style={{ width: `${protPct}%`, background: protColor }} /></div>
@@ -445,7 +445,7 @@ export default function App() {
             {/* Calorías quemadas */}
             <div style={{ padding: "7px 12px", background: "#0a0f14", borderRadius: 7, border: "1px solid #0e1a20" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 9, color: "#2a4050", letterSpacing: ".1em", textTransform: "uppercase" }}>Quemado</span>
+                <span style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Quemado</span>
                 <span style={{ fontSize: 10, color: t.burn > 0 ? "#34d399" : "#2a4050" }}>{t.burn > 0 ? `${t.burn} kcal` : "sin actividad"}</span>
               </div>
               <div className="prot-bar"><div className="prot-fill" style={{ width: `${Math.min(100, (t.burn / 800) * 100)}%`, background: "#34d399" }} /></div>
@@ -453,7 +453,7 @@ export default function App() {
             {/* Pasos */}
             <div style={{ padding: "7px 12px", background: "#0a0f14", borderRadius: 7, border: "1px solid #0e1a20" }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 9, color: "#2a4050", letterSpacing: ".1em", textTransform: "uppercase" }}>Pasos</span>
+                <span style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Pasos</span>
                 <span style={{ fontSize: 10, color: t.steps ? (t.steps >= 8000 ? "#34d399" : t.steps <= 3000 ? "#f87171" : "#fbbf24") : "#2a4050" }}>{t.steps ? t.steps.toLocaleString("es-ES") : "—"}</span>
               </div>
               <div className="prot-bar"><div className="prot-fill" style={{ width: `${Math.min(100, ((t.steps || 0) / 15000) * 100)}%`, background: t.steps >= 8000 ? "#34d399" : t.steps <= 3000 ? "#f87171" : "#fbbf24" }} /></div>
@@ -477,9 +477,9 @@ export default function App() {
             return (
               <div key={d.date} className={`day-pill ${d.date === activeDate ? "active" : ""}`}
                 onClick={() => setActiveDate(d.date)} style={{ minWidth: 86 }}>
-                <div style={{ fontSize: 8, color: "#1e3040", marginBottom: 3, whiteSpace: "nowrap" }}>{d.label || fmtDate(d.date)}</div>
+                <div style={{ fontSize: 8, color: "#8899aa", marginBottom: 3, whiteSpace: "nowrap" }}>{d.label || fmtDate(d.date)}</div>
                 <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 15, color: d.date === activeDate ? "#38bdf8" : "#2a4a60" }}>{Math.round(tt.cals)}</div>
-                <div style={{ fontSize: 7, color: "#162030", marginTop: 1 }}>kcal</div>
+                <div style={{ fontSize: 7, color: "#8899aa", marginTop: 1 }}>kcal</div>
               </div>
             );
           })}
@@ -490,14 +490,14 @@ export default function App() {
             {/* Oura Sync card */}
             <div className="card" style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 4 }}>Oura Ring</div>
+                <div style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 4 }}>Oura Ring</div>
                 {day.oura ? (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 10, color: "#34d399" }}>👟 {day.oura.steps?.toLocaleString("es-ES")} pasos</span>
                     <span style={{ fontSize: 10, color: "#34d399" }}>🔥 {day.oura.active_calories} kcal</span>
                   </div>
                 ) : (
-                  <div style={{ fontSize: 10, color: "#2a4050" }}>
+                  <div style={{ fontSize: 10, color: "#8899aa" }}>
                     {GYM_MAP[day.gym] > 0 ? `${GYM_MAP[day.gym]} kcal (manual)` : "Sin datos de actividad"}
                   </div>
                 )}
@@ -512,7 +512,7 @@ export default function App() {
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <span style={{ fontSize: 10, color: "#1e3040", letterSpacing: ".08em", textTransform: "uppercase" }}>{day.meals.length} alimentos</span>
+              <span style={{ fontSize: 10, color: "#8899aa", letterSpacing: ".08em", textTransform: "uppercase" }}>{day.meals.length} alimentos</span>
               <button className="btn-g" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "✕ Cancelar" : "+ Añadir"}</button>
             </div>
             {showAdd && (
@@ -539,7 +539,7 @@ export default function App() {
                     <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 13, fontWeight: 600, color: "#c8dce8", lineHeight: 1.3 }}>{meal.name}</div>
                     <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 15, fontWeight: 800, color: "#38bdf8", flexShrink: 0 }}>{Math.round(meal.cals)}</div>
                   </div>
-                  <div style={{ fontSize: 9, color: "#1e3040", marginTop: 4 }}>{meal.time} · {meal.note}</div>
+                  <div style={{ fontSize: 9, color: "#8899aa", marginTop: 4 }}>{meal.time} · {meal.note}</div>
                   {(meal.protein > 0 || meal.carbs > 0 || meal.fat > 0) && (
                     <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
                       <span className="badge" style={{ background: "#0e1a30", color: "#60a5fa" }}>P {Math.round(meal.protein)}g</span>
@@ -556,7 +556,7 @@ export default function App() {
         {tab === "balance" && (
           <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="card">
-              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Actividad del día</div>
+              <div style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Actividad del día</div>
               <select className="inp" value={day.gym || ""} onChange={e => setGym(e.target.value)}>
                 {GYM_ACTIVITIES.map(a => <option key={a.id} value={a.id}>{a.label}{a.cals ? ` (~${a.cals} kcal)` : ""}</option>)}
               </select>
@@ -568,20 +568,20 @@ export default function App() {
               )}
             </div>
             <div className="card">
-              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Ecuación</div>
+              <div style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Ecuación</div>
               {[
                 ["Ingerido", Math.round(t.cals), "#38bdf8", ""],
                 ["Actividad (quemado)", t.burn, "#34d399", "−"],
                 ["TDEE base", TDEE_BASE, "#2a4050", "−"]
               ].map(([label, val, color, sign], i) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: i < 2 ? "1px solid #0e1520" : "none" }}>
-                  <span style={{ fontSize: 11, color: "#2a4050" }}>{label}</span>
+                  <span style={{ fontSize: 11, color: "#8899aa" }}>{label}</span>
                   <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, color }}>{sign}{val} kcal</span>
                 </div>
               ))}
               <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 8, background: "#080b0f", border: `1px solid ${balColor}33`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".1em", textTransform: "uppercase" }}>Balance neto</div>
+                  <div style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Balance neto</div>
                   <div style={{ fontSize: 10, color: balColor, marginTop: 3 }}>
                     {t.balance > 300 ? "Superávit calórico" : t.balance < -300 ? "Déficit calórico" : "Cerca del mantenimiento"}
                   </div>
@@ -592,7 +592,7 @@ export default function App() {
               </div>
             </div>
             <div className="card">
-              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Macros vs objetivos</div>
+              <div style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Macros vs objetivos</div>
               {[
                 ["Proteína", Math.round(t.protein), 145, "#60a5fa"],
                 ["Carbohidratos", Math.round(t.carbs), 250, "#34d399"],
@@ -610,7 +610,7 @@ export default function App() {
               ))}
             </div>
             <div className="card" style={{ background: "#0a0f1a", borderColor: "#131c30" }}>
-              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Resumen total registrado</div>
+              <div style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Resumen total registrado</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                 {[
                   ["Días", `${trend.length}`, "#38bdf8"],
@@ -619,7 +619,7 @@ export default function App() {
                   ["Prom. balance", `${avgBalance > 0 ? "+" : ""}${avgBalance} kcal`, avgBalance < 0 ? "#34d399" : "#f87171"],
                 ].map(([label, val, color]) => (
                   <div key={label} style={{ background: "#080b0f", borderRadius: 7, padding: "10px 12px" }}>
-                    <div style={{ fontSize: 9, color: "#1e3040", marginBottom: 3 }}>{label}</div>
+                    <div style={{ fontSize: 9, color: "#8899aa", marginBottom: 3 }}>{label}</div>
                     <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color }}>{val}</div>
                   </div>
                 ))}
@@ -631,7 +631,7 @@ export default function App() {
         {tab === "peso" && (
           <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="card">
-              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Perfil</div>
+              <div style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Perfil</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
                 {[
                   ["Altura", `${HEIGHT_CM} cm`, "#38bdf8"],
@@ -640,13 +640,13 @@ export default function App() {
                 ].map(([label, val, color]) => (
                   <div key={label} style={{ background: "#0a0f14", borderRadius: 8, padding: "12px 10px", textAlign: "center" }}>
                     <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, color }}>{val}</div>
-                    <div style={{ fontSize: 8, color: "#1e3040", marginTop: 3 }}>{label}</div>
+                    <div style={{ fontSize: 8, color: "#8899aa", marginTop: 3 }}>{label}</div>
                   </div>
                 ))}
               </div>
               {weightChange !== null && weights.length > 1 && (
                 <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 7, background: "#080b0f", border: `1px solid ${parseFloat(weightChange) <= 0 ? "#34d39933" : "#f8717133"}` }}>
-                  <span style={{ fontSize: 10, color: "#2a4050" }}>Cambio desde inicio: </span>
+                  <span style={{ fontSize: 10, color: "#8899aa" }}>Cambio desde inicio: </span>
                   <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, color: parseFloat(weightChange) <= 0 ? "#34d399" : "#f87171" }}>
                     {parseFloat(weightChange) > 0 ? "+" : ""}{weightChange} kg
                   </span>
@@ -655,7 +655,7 @@ export default function App() {
             </div>
             <div className="card">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase" }}>Registro de peso</div>
+                <div style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".12em", textTransform: "uppercase" }}>Registro de peso</div>
                 <button className="btn-g" style={{ fontSize: 10, padding: "6px 12px" }} onClick={() => setShowAddWeight(!showAddWeight)}>
                   {showAddWeight ? "✕" : "+ Peso"}
                 </button>
@@ -671,9 +671,9 @@ export default function App() {
                 <div key={w.date} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < weights.length - 1 ? "1px solid #0e1520" : "none" }}>
                   <div>
                     <div style={{ fontSize: 11, color: "#4a6070" }}>{fmtDate(w.date)}</div>
-                    <div style={{ fontSize: 9, color: "#1e3040", marginTop: 2 }}>{w.note}</div>
+                    <div style={{ fontSize: 9, color: "#8899aa", marginTop: 2 }}>{w.note}</div>
                   </div>
-                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, color: "#a78bfa" }}>{w.kg} <span style={{ fontSize: 10, color: "#1e3040" }}>kg</span></div>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, color: "#a78bfa" }}>{w.kg} <span style={{ fontSize: 10, color: "#8899aa" }}>kg</span></div>
                 </div>
               ))}
             </div>
@@ -704,7 +704,7 @@ export default function App() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
                       <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, color: "#c8dce8", marginBottom: 3 }}>{d.label || fmtDate(d.date)}</div>
-                      <div style={{ fontSize: 9, color: "#1e3040" }}>{d.meals.length} alimentos</div>
+                      <div style={{ fontSize: 9, color: "#8899aa" }}>{d.meals.length} alimentos</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 20, color: "#38bdf8" }}>{Math.round(tt.cals)}</div>
@@ -719,7 +719,7 @@ export default function App() {
                   </div>
                   <div style={{ marginTop: 10 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                      <span style={{ fontSize: 8, color: "#1e3040" }}>Proteína</span>
+                      <span style={{ fontSize: 8, color: "#8899aa" }}>Proteína</span>
                       <span style={{ fontSize: 8, color: protColorD }}>{Math.round(tt.protein)}g / {PROT_GOAL}g</span>
                     </div>
                     <div className="prot-bar">
@@ -732,10 +732,10 @@ export default function App() {
 
             {histTab === "trend" && (
               <div className="card">
-                <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 16 }}>Calorías por día</div>
+                <div style={{ fontSize: 9, color: "#8899aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 16 }}>Calorías por día</div>
                 <svg width="100%" viewBox={`0 0 ${Math.max(trend.length * 60, 200)} 115`} style={{ overflow: "visible" }}>
                   <line x1="0" y1={80-(TDEE_BASE/maxCals)*80} x2={trend.length*60} y2={80-(TDEE_BASE/maxCals)*80} stroke="#1e3040" strokeWidth="1" strokeDasharray="4 3" />
-                  <text x={trend.length*60-2} y={80-(TDEE_BASE/maxCals)*80-4} fontSize="8" fill="#1e3040" fontFamily="JetBrains Mono" textAnchor="end">TDEE</text>
+                  <text x={trend.length*60-2} y={80-(TDEE_BASE/maxCals)*80-4} fontSize="8" fill="#8899aa" fontFamily="JetBrains Mono" textAnchor="end">TDEE</text>
                   {trend.map((d, i) => {
                     const barH = Math.max(4, (d.cals/maxCals)*80);
                     const x = i*60+8;
@@ -743,13 +743,13 @@ export default function App() {
                     return (
                       <g key={d.date}>
                         <rect x={x} y={80-barH} width={40} height={barH} rx={3} fill={bc2} opacity={d.date===activeDate?1:0.4} />
-                        <text x={x+20} y={98} textAnchor="middle" fontSize="6" fill="#1e3040" fontFamily="JetBrains Mono">{d.label.slice(0,6)}</text>
+                        <text x={x+20} y={98} textAnchor="middle" fontSize="6" fill="#8899aa" fontFamily="JetBrains Mono">{d.label.slice(0,6)}</text>
                         <text x={x+20} y={80-barH-4} textAnchor="middle" fontSize="7" fill={bc2} fontFamily="JetBrains Mono">{Math.round(d.cals)}</text>
                       </g>
                     );
                   })}
                 </svg>
-                <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", fontSize: 10, color: "#2a4050" }}>
+                <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", fontSize: 10, color: "#8899aa" }}>
                   <span>Promedio: <span style={{ color: "#38bdf8" }}>{avgCals} kcal</span></span>
                   <span>Balance medio: <span style={{ color: "#34d399" }}>{avgBalance} kcal</span></span>
                 </div>
