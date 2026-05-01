@@ -301,18 +301,18 @@ export default function App() {
       var stored = raw ? JSON.parse(raw) : { days: [], weights: [] };
       if (!stored.weights) stored.weights = [];
       var changed = false;
-      for (var i = 0; i < SEED_DAYS.length; i++) {
-        if (!stored.days.find(function(d) { return d.date === SEED_DAYS[i].date; })) {
-          stored.days.push(SEED_DAYS[i]);
+      SEED_DAYS.forEach(function(seed) {
+        if (!stored.days.find(function(d) { return d.date === seed.date; })) {
+          stored.days.push(seed);
           changed = true;
         }
-      }
-      for (var j = 0; j < INITIAL_WEIGHTS.length; j++) {
-        if (!stored.weights.find(function(w) { return w.date === INITIAL_WEIGHTS[j].date; })) {
-          stored.weights.push(INITIAL_WEIGHTS[j]);
+      });
+      INITIAL_WEIGHTS.forEach(function(wt) {
+        if (!stored.weights.find(function(w) { return w.date === wt.date; })) {
+          stored.weights.push(wt);
           changed = true;
         }
-      }
+      });
       stored.days.sort(function(a, b) { return a.date.localeCompare(b.date); });
       stored.weights.sort(function(a, b) { return a.date.localeCompare(b.date); });
       if (changed || !raw) localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
