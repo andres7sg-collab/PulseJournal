@@ -1,0 +1,685 @@
+import { useState, useEffect, useCallback } from "react";
+
+const STORAGE_KEY = "calorie_history_v16";
+const TDEE_BASE = 2300;
+const PROT_GOAL = 145;
+const HEIGHT_CM = 186;
+
+function fmtDate(dateStr) {
+  const [y, mo, dy] = dateStr.split("-").map(Number);
+  const d = new Date(y, mo - 1, dy);
+  return d.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
+}
+
+const GYM_ACTIVITIES = [
+  { id: "", label: "— Sin actividad —", cals: 0 },
+  { id: "walk_60", label: "Caminar 60 min", cals: 180 },
+  { id: "weights_45", label: "Pesas 45 min", cals: 220 },
+  { id: "weights_60", label: "Pesas 60 min", cals: 300 },
+  { id: "weights_75", label: "Pesas 75 min", cals: 350 },
+  { id: "weights_90", label: "Pesas 90 min", cals: 420 },
+  { id: "cycling_45", label: "Bici estática 45 min", cals: 350 },
+  { id: "cardio_30", label: "Cardio 30 min", cals: 250 },
+  { id: "cardio_45", label: "Cardio 45 min", cals: 370 },
+  { id: "cardio_60", label: "Cardio 60 min", cals: 490 },
+  { id: "hiit_30", label: "HIIT 30 min", cals: 400 },
+  { id: "swim_45", label: "Natación 45 min", cals: 380 },
+  { id: "weights_pasos_11k", label: "Pesas 60 min + 11k pasos", cals: 680 },
+  { id: "pasos_9700_flexiones", label: "9,700 pasos + 75 flexiones", cals: 345 },
+  { id: "weights_pasos_9500", label: "Pesas 60 min + 9,524 pasos", cals: 614 },
+  { id: "pasos_9062", label: "9,062 pasos", cals: 299 },
+  { id: "weights90_pasos_11k", label: "Pesas 90 min + 11,290 pasos", cals: 792 },
+  { id: "pasos_9300", label: "9,300 pasos", cals: 307 },
+  { id: "weights_pasos_15k", label: "Pesas 60 min + 15,015 pasos", cals: 795 },
+  { id: "pasos_4681", label: "4,681 pasos", cals: 154 },
+  { id: "weights_pasos_5900", label: "Pesas 60 min + 5,900 pasos", cals: 495 },
+  { id: "pasos_9233", label: "9,233 pasos", cals: 305 },
+  { id: "weights75_pasos_11k", label: "Pesas 75 min + 11,227 pasos", cals: 720 },
+];
+const GYM_MAP = Object.fromEntries(GYM_ACTIVITIES.map(a => [a.id, a.cals]));
+
+const INITIAL_WEIGHTS = [
+  { date: "2025-04-26", kg: 82.15, note: "Tarde, ref. inicio semana 1" },
+];
+
+const SEED_DAYS = [
+  {
+    date: "2025-04-16", label: "jue, 16 abr", gym: "weights_60",
+    meals: [
+      { id: 1, name: "Medio bocata omelette + jamón serrano", cals: 380, protein: 22, carbs: 32, fat: 17, time: "13:00", note: "~100g pan, 2 huevos, 40g jamón" },
+      { id: 2, name: "Coca-Cola Light", cals: 2, protein: 0, carbs: 0.1, fat: 0, time: "13:00", note: "330ml" },
+      { id: 3, name: "Big Mac", cals: 563, protein: 26, carbs: 43, fat: 33, time: "19:30", note: "Datos oficiales McDonald's" },
+      { id: 4, name: "Patatas medianas McDonald's", cals: 337, protein: 4, carbs: 44, fat: 16, time: "19:30", note: "~115g" },
+      { id: 5, name: "Coca-Cola Zero", cals: 1, protein: 0, carbs: 0.1, fat: 0, time: "19:30", note: "330ml" },
+      { id: 6, name: "Bowl muesli + blueberries + yogurt griego", cals: 390, protein: 18, carbs: 52, fat: 8, time: "22:00", note: "60g muesli, 150g yogurt 0%, 80g blueberries" },
+    ],
+  },
+  {
+    date: "2025-04-20", label: "lun, 20 abr", gym: "weights_pasos_11k",
+    meals: [
+      { id: 101, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
+      { id: 102, name: "Jugo de naranja (~150ml) + creatina 5g", cals: 55, protein: 1, carbs: 13, fat: 0, time: "08:30", note: "Medio vaso" },
+      { id: 103, name: "Medio bocata jamón serrano", cals: 310, protein: 20, carbs: 28, fat: 12, time: "10:00", note: "~100g pan, 40g jamón" },
+      { id: 104, name: "Mandarina", cals: 45, protein: 1, carbs: 11, fat: 0, time: "12:00", note: "~100g" },
+      { id: 105, name: "Bowl tierra burrito (arroz, frijoles, verduras, pollo)", cals: 520, protein: 35, carbs: 62, fat: 10, time: "14:00", note: "Ración generosa ~400g" },
+      { id: 106, name: "Coca-Cola Light", cals: 2, protein: 0, carbs: 0.1, fat: 0, time: "14:00", note: "330ml" },
+      { id: 107, name: "Manzana", cals: 80, protein: 0, carbs: 21, fat: 0, time: "17:00", note: "~150g" },
+      { id: 108, name: "Barrita Kind Protein", cals: 250, protein: 12, carbs: 25, fat: 12, time: "18:30", note: "Kind Protein" },
+      { id: 109, name: "Bowl yogurt griego + granola + blueberries", cals: 390, protein: 18, carbs: 52, fat: 8, time: "21:00", note: "150g yogurt, 60g granola, 80g blueberries" },
+    ],
+  },
+  {
+    date: "2025-04-21", label: "mar, 21 abr", gym: "pasos_9700_flexiones",
+    meals: [
+      { id: 201, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
+      { id: 202, name: "Bowl yogurt griego + granola", cals: 350, protein: 16, carbs: 48, fat: 8, time: "08:30", note: "150g yogurt, 60g granola" },
+      { id: 203, name: "Jugo de naranja (~150ml) + creatina 5g", cals: 55, protein: 1, carbs: 13, fat: 0, time: "09:30", note: "Medio vaso" },
+      { id: 204, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "11:00", note: "Sin azúcar" },
+      { id: 205, name: "Mandarina", cals: 45, protein: 1, carbs: 11, fat: 0, time: "12:00", note: "~100g" },
+      { id: 206, name: "Bocata de atún, lechuga y tomate", cals: 420, protein: 28, carbs: 38, fat: 12, time: "14:00", note: "~180g pan, ~80g atún en agua" },
+      { id: 207, name: "Coca-Cola Zero", cals: 1, protein: 0, carbs: 0, fat: 0, time: "14:00", note: "330ml" },
+      { id: 208, name: "6 crackers Salmas + garbanzos + aguacate + pepinillos", cals: 310, protein: 9, carbs: 32, fat: 16, time: "19:00", note: "30g crackers, 50g garbanzos, ½ aguacate" },
+    ],
+  },
+  {
+    date: "2025-04-22", label: "mié, 22 abr", gym: "weights_pasos_9500",
+    meals: [
+      { id: 301, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
+      { id: 302, name: "Bowl yogurt griego + granola + blueberries + creatina 5g", cals: 390, protein: 18, carbs: 52, fat: 8, time: "08:30", note: "150g yogurt, 60g granola, blueberries" },
+      { id: 303, name: "Bowl Tierra burrito (arroz, frijoles, pimientos, pollo, maíz)", cals: 520, protein: 35, carbs: 62, fat: 10, time: "14:00", note: "Ración generosa ~400g, salsa picante" },
+      { id: 304, name: "Coca-Cola Zero", cals: 1, protein: 0, carbs: 0, fat: 0, time: "14:00", note: "330ml" },
+      { id: 305, name: "Café americano doble", cals: 10, protein: 0, carbs: 1, fat: 0, time: "16:00", note: "Sin azúcar" },
+      { id: 306, name: "Pera", cals: 70, protein: 0, carbs: 18, fat: 0, time: "17:00", note: "~150g" },
+      { id: 307, name: "Kiwi", cals: 50, protein: 1, carbs: 12, fat: 0, time: "17:30", note: "~100g" },
+      { id: 308, name: "Barrita Kind Protein", cals: 250, protein: 12, carbs: 25, fat: 12, time: "19:00", note: "Kind Protein" },
+      { id: 309, name: "Media pizza casera (base Mercadona, tomate, mozzarella, atún, aceitunas, piparra)", cals: 480, protein: 28, carbs: 42, fat: 20, time: "21:00", note: "Base healthy ~300g total" },
+      { id: 310, name: "Cerveza Moritz original", cals: 145, protein: 1, carbs: 13, fat: 0, time: "21:30", note: "330ml lata" },
+    ],
+  },
+  {
+    date: "2025-04-23", label: "jue, 23 abr", gym: "pasos_9062",
+    meals: [
+      { id: 401, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
+      { id: 402, name: "Bowl yogurt griego + blueberries", cals: 200, protein: 16, carbs: 22, fat: 4, time: "08:30", note: "150g yogurt 0%, sin granola" },
+      { id: 403, name: "Jugo naranja (~120ml) + creatina 5g", cals: 45, protein: 1, carbs: 11, fat: 0, time: "09:00", note: "Media taza" },
+      { id: 404, name: "Plátano", cals: 90, protein: 1, carbs: 23, fat: 0, time: "11:00", note: "~100g" },
+      { id: 405, name: "Medio baguette jamón serrano", cals: 310, protein: 20, carbs: 28, fat: 12, time: "13:00", note: "~100g pan, 40g jamón" },
+      { id: 406, name: "Cupcake pequeño", cals: 180, protein: 2, carbs: 24, fat: 9, time: "14:00", note: "~60g" },
+      { id: 407, name: "Coca-Cola Light", cals: 2, protein: 0, carbs: 0, fat: 0, time: "14:00", note: "330ml" },
+      { id: 408, name: "Cerveza pinta IPA", cals: 250, protein: 2, carbs: 20, fat: 0, time: "18:00", note: "~500ml" },
+      { id: 409, name: "Cena Superauto — ⅓ ensalada + bravas + tostada pescado + schnitzel", cals: 520, protein: 22, carbs: 38, fat: 28, time: "21:00", note: "Porción ~⅓ de todo compartido" },
+      { id: 410, name: "Copa vino blanco", cals: 120, protein: 0, carbs: 4, fat: 0, time: "21:30", note: "~150ml" },
+      { id: 411, name: "Lata cerveza IPA", cals: 180, protein: 1, carbs: 14, fat: 0, time: "22:00", note: "330ml" },
+      { id: 412, name: "Cerveza sin gluten", cals: 130, protein: 1, carbs: 12, fat: 0, time: "22:30", note: "330ml" },
+    ],
+  },
+  {
+    date: "2025-04-24", label: "vie, 24 abr", gym: "weights90_pasos_11k",
+    meals: [
+      { id: 501, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
+      { id: 502, name: "Flauta tortilla de huevo y patatas con tomate", cals: 420, protein: 14, carbs: 48, fat: 18, time: "09:30", note: "Flauta mediana" },
+      { id: 503, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "11:00", note: "Sin azúcar" },
+      { id: 504, name: "Manzana", cals: 80, protein: 0, carbs: 21, fat: 0, time: "12:30", note: "~150g" },
+      { id: 505, name: "4 rebanadas pizza Papa John's", cals: 760, protein: 32, carbs: 88, fat: 28, time: "14:00", note: "Est. pizza mediana ~4 rebanadas" },
+      { id: 506, name: "Galleta Born Winner Double Chocolate (75g)", cals: 270, protein: 23, carbs: 22, fat: 9, time: "17:00", note: "23g proteína por cookie" },
+      { id: 507, name: "Pink Fit Protein Shake — Nude", cals: 220, protein: 18, carbs: 24, fat: 6, time: "18:00", note: "Frambuesa, coco, proteína vegana" },
+      { id: 508, name: "Ramen Nongshim Shin Kimchi", cals: 500, protein: 10, carbs: 72, fat: 18, time: "21:00", note: "Paquete completo" },
+      { id: 509, name: "Huevo entero", cals: 70, protein: 6, carbs: 0, fat: 5, time: "21:00", note: "Añadido al ramen" },
+      { id: 510, name: "Mayonesa (~1 cucharada)", cals: 90, protein: 0, carbs: 0, fat: 10, time: "21:00", note: "Toque al ramen" },
+      { id: 511, name: "Aceite picante + setas + cebolla china", cals: 45, protein: 1, carbs: 3, fat: 3, time: "21:00", note: "Toppings ramen" },
+    ],
+  },
+  {
+    date: "2025-04-25", label: "sáb, 25 abr", gym: "pasos_9300",
+    meals: [
+      { id: 601, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:30", note: "Sin azúcar" },
+      { id: 602, name: "Flauta jamón serrano", cals: 310, protein: 20, carbs: 28, fat: 12, time: "09:30", note: "~100g pan, 40g jamón" },
+      { id: 603, name: "Matcha latte de avena", cals: 120, protein: 3, carbs: 18, fat: 4, time: "10:00", note: "~250ml leche avena" },
+      { id: 604, name: "Picnic playa ⅓ (gildas, patatas, fuet + ⅓ botella vino blanco)", cals: 390, protein: 7, carbs: 20, fat: 22, time: "13:00", note: "Sin pan, compartido entre 3" },
+      { id: 605, name: "5 cervezas Estrella Galicia 25cl", cals: 375, protein: 2, carbs: 32, fat: 0, time: "13:30", note: "~75 kcal cada una" },
+      { id: 606, name: "Cena compartida ⅓ (gambas coco + pad thai + ceviche + fideuá + ⅓ vino)", cals: 620, protein: 24, carbs: 62, fat: 24, time: "21:00", note: "Porción ~⅓ de todo compartido" },
+      { id: 607, name: "Medio plato arroz + atún + tomate + sardina", cals: 320, protein: 22, carbs: 38, fat: 8, time: "23:00", note: "Cena tardía en casa" },
+    ],
+  },
+  {
+    date: "2025-04-26", label: "dom, 26 abr", gym: "weights_pasos_15k",
+    meals: [
+      { id: 701, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
+      { id: 702, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "10:00", note: "Sin azúcar" },
+      { id: 703, name: "Tortilla vaga (3 huevos + salmón 50g + piparras + setas) + wrap espelta integral", cals: 430, protein: 37, carbs: 31, fat: 18, time: "11:30", note: "Alta proteína, baja caloría" },
+      { id: 704, name: "Yogurt griego Oikos sin azúcar", cals: 90, protein: 10, carbs: 4, fat: 4, time: "13:00", note: "~125g" },
+      { id: 705, name: "Creatina 5g en agua", cals: 0, protein: 0, carbs: 0, fat: 0, time: "13:00", note: "Sin calorías" },
+      { id: 706, name: "Barrita Kind Protein", cals: 250, protein: 12, carbs: 25, fat: 12, time: "16:00", note: "Kind Protein" },
+      { id: 707, name: "Coca-Cola Zero", cals: 1, protein: 0, carbs: 0, fat: 0, time: "16:00", note: "330ml" },
+      { id: 708, name: "Bocata focaccia de atún con tomate (Buenas Migas)", cals: 480, protein: 26, carbs: 52, fat: 16, time: "19:00", note: "Focaccia mediana, atún generoso" },
+      { id: 709, name: "Picoteo ½ (patatillas + mejillones escabeche + piparras + pepinillos + salsas)", cals: 280, protein: 8, carbs: 22, fat: 16, time: "21:00", note: "Compartido entre dos" },
+      { id: 710, name: "Lata Moritz", cals: 145, protein: 1, carbs: 13, fat: 0, time: "21:30", note: "330ml" },
+    ],
+  },
+  {
+    date: "2025-04-27", label: "lun, 27 abr", gym: "pasos_4681",
+    meals: [
+      { id: 801, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
+      { id: 802, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "10:00", note: "Sin azúcar" },
+      { id: 803, name: "Yogurt griego Oikos sin azúcar", cals: 90, protein: 10, carbs: 4, fat: 4, time: "09:00", note: "~125g" },
+      { id: 804, name: "Naranja", cals: 60, protein: 1, carbs: 15, fat: 0, time: "11:00", note: "~150g" },
+      { id: 805, name: "Veggie plate Honest Greens (½ ensalada verde + ½ granos + boniato tahini + arroz marroquí + tofu hierbas)", cals: 580, protein: 18, carbs: 72, fat: 22, time: "14:00", note: "Estimado por ingredientes del menú" },
+      { id: 806, name: "Matcha protein ball Honest Greens", cals: 120, protein: 6, carbs: 14, fat: 5, time: "14:30", note: "~40g aprox" },
+      { id: 807, name: "Coca-Cola Light", cals: 2, protein: 0, carbs: 0, fat: 0, time: "14:30", note: "330ml" },
+      { id: 808, name: "Plato grande orzo + albóndigas de pollo", cals: 620, protein: 38, carbs: 72, fat: 18, time: "21:00", note: "~350g orzo cocido + ~150g albóndigas pollo" },
+    ],
+  },
+  {
+    date: "2025-04-28", label: "mar, 28 abr", gym: "weights_pasos_5900",
+    meals: [
+      { id: 901, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
+      { id: 902, name: "Yogurt griego Oikos sin azúcar", cals: 90, protein: 10, carbs: 4, fat: 4, time: "08:30", note: "~125g" },
+      { id: 903, name: "Plátano", cals: 90, protein: 1, carbs: 23, fat: 0, time: "09:00", note: "~100g" },
+      { id: 904, name: "Coca-Cola Light", cals: 2, protein: 0, carbs: 0, fat: 0, time: "10:00", note: "330ml" },
+      { id: 905, name: "Plato grande orzo + albóndigas de pollo", cals: 620, protein: 38, carbs: 72, fat: 18, time: "14:00", note: "~350g orzo cocido + ~150g albóndigas pollo" },
+      { id: 906, name: "Manzana", cals: 80, protein: 0, carbs: 21, fat: 0, time: "17:00", note: "~150g" },
+      { id: 907, name: "Coca-Cola Light", cals: 2, protein: 0, carbs: 0, fat: 0, time: "17:00", note: "330ml" },
+      { id: 908, name: "Galleta Born Winner Double Chocolate (75g)", cals: 270, protein: 23, carbs: 22, fat: 9, time: "19:00", note: "23g proteína por cookie" },
+      { id: 909, name: "Sardinas en aceite oliva + cebolla china + piparra + feta + mostaza + mayo", cals: 340, protein: 22, carbs: 4, fat: 26, time: "21:00", note: "~1 lata 90g + toppings" },
+      { id: 910, name: "6 crackers Salmas", cals: 110, protein: 2, carbs: 18, fat: 3, time: "21:00", note: "~30g" },
+      { id: 911, name: "Yogurt Alpro 150g + arándanos + muesli", cals: 280, protein: 6, carbs: 42, fat: 8, time: "22:00", note: "Vegetal, menos proteína que Oikos" },
+    ],
+  },
+  {
+    date: "2025-04-29", label: "mié, 29 abr", gym: "pasos_9233",
+    meals: [
+      { id: 1001, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
+      { id: 1002, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "10:00", note: "Sin azúcar" },
+      { id: 1003, name: "Honest Greens Breakfast Burrito (tofu scramble, aguacate, pico de gallo, kale, maíz, bacon coco, frijoles)", cals: 520, protein: 18, carbs: 58, fat: 22, time: "09:30", note: "Plant-based, high protein" },
+      { id: 1004, name: "Bowl Tierra burrito (arroz integral, frijoles, pollo, crema ácida, salsas)", cals: 540, protein: 36, carbs: 64, fat: 12, time: "14:00", note: "Arroz integral, ración generosa" },
+      { id: 1005, name: "Manzana", cals: 80, protein: 0, carbs: 21, fat: 0, time: "17:00", note: "~150g" },
+      { id: 1006, name: "Coca-Cola Light", cals: 2, protein: 0, carbs: 0, fat: 0, time: "17:00", note: "330ml" },
+      { id: 1007, name: "Shake HSN EvoWhey 2.0 (1 scoop 30g + 250ml agua)", cals: 115, protein: 23, carbs: 3, fat: 2, time: "18:00", note: "Primera toma EvoWhey 🎉" },
+      { id: 1008, name: "Gyro halloumi + media ración patatas fritas", cals: 620, protein: 22, carbs: 48, fat: 36, time: "21:00", note: "Halloumi frito, media ración patatas" },
+      { id: 1009, name: "Coca-Cola Zero", cals: 1, protein: 0, carbs: 0, fat: 0, time: "21:00", note: "330ml" },
+    ],
+  },
+  {
+    date: "2025-04-30", label: "jue, 30 abr", gym: "weights75_pasos_11k",
+    meals: [
+      { id: 1101, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "08:00", note: "Sin azúcar" },
+      { id: 1102, name: "Café americano (solo)", cals: 5, protein: 0, carbs: 1, fat: 0, time: "10:00", note: "Sin azúcar" },
+      { id: 1103, name: "Bocata flauta completo jamón serrano", cals: 520, protein: 32, carbs: 48, fat: 18, time: "09:30", note: "Flauta entera ~200g pan, 60g jamón" },
+      { id: 1104, name: "Manzana", cals: 80, protein: 0, carbs: 21, fat: 0, time: "12:00", note: "~150g" },
+      { id: 1105, name: "Comida china (albóndigas pollo + huevo cocido + vegetales + tofu + salsa picante)", cals: 480, protein: 38, carbs: 22, fat: 24, time: "14:00", note: "Plato combinado, alta proteína" },
+      { id: 1106, name: "Shake HSN EvoWhey 2.0 (1 scoop 30g + agua)", cals: 115, protein: 23, carbs: 3, fat: 2, time: "17:00", note: "EvoWhey con agua" },
+      { id: 1107, name: "Cena india ½ (butter chicken + chana masala + paneer kofta + arroz + garlic naan)", cals: 780, protein: 34, carbs: 72, fat: 32, time: "21:00", note: "Mitad de cena para dos, curry + naan" },
+    ],
+  },
+];
+
+function dayTotals(day) {
+  const cals = day.meals.reduce((s, m) => s + m.cals, 0);
+  const protein = day.meals.reduce((s, m) => s + (m.protein || 0), 0);
+  const carbs = day.meals.reduce((s, m) => s + (m.carbs || 0), 0);
+  const fat = day.meals.reduce((s, m) => s + (m.fat || 0), 0);
+  const burn = GYM_MAP[day.gym] || 0;
+  return { cals, protein, carbs, fat, burn, balance: cals - burn - TDEE_BASE };
+}
+
+function bmi(kg) { return (kg / ((HEIGHT_CM / 100) ** 2)).toFixed(1); }
+
+const css = `
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#080b0f;}
+  ::-webkit-scrollbar{width:3px;}
+  ::-webkit-scrollbar-thumb{background:#1e2530;border-radius:2px;}
+  input,select{font-family:'JetBrains Mono',monospace;}
+  .inp{background:#0e1318;border:1px solid #1a2230;color:#d4dde8;padding:9px 12px;
+    border-radius:6px;font-size:12px;outline:none;transition:border .2s;width:100%;}
+  .inp:focus{border-color:#38bdf8;}
+  .inp::placeholder{color:#2a3545;}
+  .btn{background:#38bdf8;color:#080b0f;border:none;padding:9px 18px;border-radius:6px;
+    cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;
+    letter-spacing:.06em;transition:all .2s;}
+  .btn:hover{background:#7dd3fc;}
+  .btn-g{background:none;border:1px solid #1a2230;color:#4a6080;padding:8px 14px;
+    border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11px;
+    letter-spacing:.06em;transition:all .2s;}
+  .btn-g:hover,.btn-g.on{border-color:#38bdf8;color:#38bdf8;}
+  .btn-del{background:none;border:none;color:#2a3545;cursor:pointer;font-size:18px;
+    line-height:1;padding:2px 5px;transition:color .2s;flex-shrink:0;}
+  .btn-del:hover{color:#f87171;}
+  .tab{background:none;border:none;cursor:pointer;padding:9px 10px;
+    font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;
+    text-transform:uppercase;transition:all .2s;border-bottom:2px solid transparent;}
+  .tab.on{color:#38bdf8;border-bottom-color:#38bdf8;}
+  .tab:not(.on){color:#2a3848;}
+  .tab:hover:not(.on){color:#4a6a80;}
+  .card{background:#0c1117;border:1px solid #131c26;border-radius:10px;padding:18px 20px;}
+  .mrow{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-bottom:1px solid #0e1520;transition:background .15s;}
+  .mrow:hover{background:rgba(56,189,248,.03);}
+  .badge{display:inline-block;padding:2px 7px;border-radius:3px;font-size:9px;letter-spacing:.07em;font-weight:500;}
+  .day-pill{border-radius:8px;padding:10px 12px;cursor:pointer;border:1px solid #131c26;transition:all .2s;background:#0c1117;flex-shrink:0;}
+  .day-pill:hover{border-color:#38bdf8;}
+  .day-pill.active{border-color:#38bdf8;background:#0e1a26;}
+  .prot-bar{height:6px;border-radius:3px;background:#0e1520;overflow:hidden;margin-top:4px;}
+  .prot-fill{height:100%;border-radius:3px;transition:width .5s;}
+  @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .fi{animation:fi .25s ease forwards;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .saving{animation:pulse .9s infinite;font-size:9px;color:#38bdf8;margin-top:2px;}
+`;
+
+export default function App() {
+  const [history, setHistory] = useState(null);
+  const [weights, setWeights] = useState(null);
+  const [activeDate, setActiveDate] = useState(null);
+  const [tab, setTab] = useState("log");
+  const [showAdd, setShowAdd] = useState(false);
+  const [showAddWeight, setShowAddWeight] = useState(false);
+  const [form, setForm] = useState({ name: "", cals: "", prot: "", carbs: "", fat: "", time: "13:00", note: "" });
+  const [weightForm, setWeightForm] = useState({ date: "", kg: "" });
+  const [saving, setSaving] = useState(false);
+  const [histTab, setHistTab] = useState("days");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        let stored = raw ? JSON.parse(raw) : { days: [], weights: [] };
+        if (!stored.weights) stored.weights = [];
+        let changed = false;
+        for (const seed of SEED_DAYS) {
+          if (!stored.days.find(d => d.date === seed.date)) {
+            stored = { ...stored, days: [...stored.days, seed] };
+            changed = true;
+          }
+        }
+        for (const w of INITIAL_WEIGHTS) {
+          if (!stored.weights.find(x => x.date === w.date)) {
+            stored = { ...stored, weights: [...stored.weights, w] };
+            changed = true;
+          }
+        }
+        stored.days = [...stored.days].sort((a, b) => a.date.localeCompare(b.date));
+        stored.weights = [...stored.weights].sort((a, b) => a.date.localeCompare(b.date));
+        if (changed || !raw) localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+        setHistory({ days: stored.days });
+        setWeights(stored.weights);
+        setActiveDate(stored.days[stored.days.length - 1].date);
+      } catch {
+        setHistory({ days: SEED_DAYS });
+        setWeights(INITIAL_WEIGHTS);
+        setActiveDate(SEED_DAYS[SEED_DAYS.length - 1].date);
+      }
+    })();
+  }, []);
+
+  const save = useCallback(async (days, ws) => {
+    setSaving(true);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ days, weights: ws })); } catch {}
+    setTimeout(() => setSaving(false), 700);
+  }, []);
+
+  const update = (newDays, newWeights) => {
+    const w = newWeights !== undefined ? newWeights : weights;
+    setHistory({ days: newDays });
+    if (newWeights !== undefined) setWeights(newWeights);
+    save(newDays, w);
+  };
+
+  if (!history || !weights) return (
+    <div style={{ background: "#080b0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <style>{css}</style>
+      <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#2a3848" }}>Cargando…</span>
+    </div>
+  );
+
+  const day = history.days.find(d => d.date === activeDate) || history.days[history.days.length - 1];
+  const t = dayTotals(day);
+  const balColor = t.balance > 300 ? "#f87171" : t.balance < -300 ? "#34d399" : "#fbbf24";
+  const protPct = Math.min(100, Math.round(t.protein / PROT_GOAL * 100));
+  const protColor = protPct >= 80 ? "#34d399" : protPct >= 50 ? "#fbbf24" : "#f87171";
+  const lastWeight = weights[weights.length - 1];
+  const firstWeight = weights[0]?.kg || 82.15;
+
+  const removeItem = (id) => {
+    const newDays = history.days.map(d => d.date === activeDate ? { ...d, meals: d.meals.filter(m => m.id !== id) } : d);
+    update(newDays);
+  };
+  const setGym = (val) => {
+    const newDays = history.days.map(d => d.date === activeDate ? { ...d, gym: val } : d);
+    update(newDays);
+  };
+  const addItem = () => {
+    if (!form.name.trim() || !form.cals) return;
+    const item = { id: Date.now(), name: form.name, cals: parseFloat(form.cals)||0, protein: parseFloat(form.prot)||0, carbs: parseFloat(form.carbs)||0, fat: parseFloat(form.fat)||0, time: form.time, note: form.note||"Manual" };
+    const newDays = history.days.map(d => d.date === activeDate ? { ...d, meals: [...d.meals, item] } : d);
+    update(newDays);
+    setForm({ name:"", cals:"", prot:"", carbs:"", fat:"", time:"13:00", note:"" });
+    setShowAdd(false);
+  };
+  const addWeight = () => {
+    if (!weightForm.date || !weightForm.kg) return;
+    const newW = [...weights.filter(w => w.date !== weightForm.date), { date: weightForm.date, kg: parseFloat(weightForm.kg), note: "Manual" }].sort((a,b) => a.date.localeCompare(b.date));
+    setWeights(newW);
+    save(history.days, newW);
+    setWeightForm({ date: "", kg: "" });
+    setShowAddWeight(false);
+  };
+
+  const trend = history.days.map(d => { const tt = dayTotals(d); return { ...tt, date: d.date, label: d.label || fmtDate(d.date) }; });
+  const maxCals = Math.max(...trend.map(d => d.cals), TDEE_BASE + 300);
+  const weightChange = weights.length > 1 ? (lastWeight.kg - firstWeight).toFixed(2) : null;
+  const totalCals = trend.reduce((s, d) => s + d.cals, 0);
+  const totalBalance = trend.reduce((s, d) => s + d.balance, 0);
+  const avgCals = Math.round(totalCals / trend.length);
+  const avgBalance = Math.round(totalBalance / trend.length);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#080b0f", fontFamily: "'JetBrains Mono',monospace", color: "#c8d8e8", paddingBottom: 60 }}>
+      <style>{css}</style>
+
+      <div style={{ background: "#060910", borderBottom: "1px solid #0e1520", padding: "18px 20px 0" }}>
+        <div style={{ maxWidth: 500, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".18em", textTransform: "uppercase", marginBottom: 4 }}>PULSO JOURNAL</div>
+              <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: "-.02em", color: "#e8f4ff" }}>
+                {day.label || fmtDate(day.date)}
+              </h1>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: "#38bdf8", lineHeight: 1 }}>{Math.round(t.cals)}</div>
+              <div style={{ fontSize: 9, color: "#1e3040", marginTop: 2 }}>kcal ingeridas</div>
+              {saving && <div className="saving">guardando…</div>}
+            </div>
+          </div>
+          <div style={{ marginBottom: 12, padding: "8px 12px", background: "#0a0f14", borderRadius: 7, border: "1px solid #0e1a20" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ fontSize: 9, color: "#2a4050", letterSpacing: ".1em", textTransform: "uppercase" }}>Proteína del día</span>
+              <span style={{ fontSize: 10, color: protColor }}>{Math.round(t.protein)}g / {PROT_GOAL}g</span>
+            </div>
+            <div className="prot-bar">
+              <div className="prot-fill" style={{ width: `${protPct}%`, background: protColor }} />
+            </div>
+          </div>
+          <div style={{ display: "flex" }}>
+            {["log","balance","peso","historial"].map(k => (
+              <button key={k} className={`tab ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>
+                {k === "log" ? "Comidas" : k === "balance" ? "Balance" : k === "peso" ? "Peso" : "Historial"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 500, margin: "0 auto", padding: "20px 20px" }}>
+
+        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 6, marginBottom: 20, scrollbarWidth: "none" }}>
+          {history.days.map(d => {
+            const tt = dayTotals(d);
+            return (
+              <div key={d.date} className={`day-pill ${d.date === activeDate ? "active" : ""}`}
+                onClick={() => setActiveDate(d.date)} style={{ minWidth: 86 }}>
+                <div style={{ fontSize: 8, color: "#1e3040", marginBottom: 3, whiteSpace: "nowrap" }}>{d.label || fmtDate(d.date)}</div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 15, color: d.date === activeDate ? "#38bdf8" : "#2a4a60" }}>{Math.round(tt.cals)}</div>
+                <div style={{ fontSize: 7, color: "#162030", marginTop: 1 }}>kcal</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {tab === "log" && (
+          <div className="fi">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <span style={{ fontSize: 10, color: "#1e3040", letterSpacing: ".08em", textTransform: "uppercase" }}>{day.meals.length} alimentos</span>
+              <button className="btn-g" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "✕ Cancelar" : "+ Añadir"}</button>
+            </div>
+            {showAdd && (
+              <div className="fi card" style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 9 }}>
+                <input className="inp" placeholder="Alimento…" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="inp" placeholder="kcal *" type="number" value={form.cals} onChange={e => setForm(f => ({ ...f, cals: e.target.value }))} />
+                  <input className="inp" type="time" value={form.time} onChange={e => setForm(f => ({ ...f, time: e.target.value }))} />
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <input className="inp" placeholder="Prot g" type="number" value={form.prot} onChange={e => setForm(f => ({ ...f, prot: e.target.value }))} />
+                  <input className="inp" placeholder="Carbs g" type="number" value={form.carbs} onChange={e => setForm(f => ({ ...f, carbs: e.target.value }))} />
+                  <input className="inp" placeholder="Grasas g" type="number" value={form.fat} onChange={e => setForm(f => ({ ...f, fat: e.target.value }))} />
+                </div>
+                <input className="inp" placeholder="Nota opcional…" value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} />
+                <button className="btn" onClick={addItem}>Añadir al registro</button>
+              </div>
+            )}
+            {day.meals.map(meal => (
+              <div key={meal.id} className="mrow">
+                <button className="btn-del" onClick={() => removeItem(meal.id)}>×</button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 13, fontWeight: 600, color: "#c8dce8", lineHeight: 1.3 }}>{meal.name}</div>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 15, fontWeight: 800, color: "#38bdf8", flexShrink: 0 }}>{Math.round(meal.cals)}</div>
+                  </div>
+                  <div style={{ fontSize: 9, color: "#1e3040", marginTop: 4 }}>{meal.time} · {meal.note}</div>
+                  {(meal.protein > 0 || meal.carbs > 0 || meal.fat > 0) && (
+                    <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
+                      <span className="badge" style={{ background: "#0e1a30", color: "#60a5fa" }}>P {Math.round(meal.protein)}g</span>
+                      <span className="badge" style={{ background: "#0a1a20", color: "#34d399" }}>C {Math.round(meal.carbs)}g</span>
+                      <span className="badge" style={{ background: "#1a1510", color: "#fbbf24" }}>G {Math.round(meal.fat)}g</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "balance" && (
+          <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="card">
+              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Actividad del día</div>
+              <select className="inp" value={day.gym || ""} onChange={e => setGym(e.target.value)}>
+                {GYM_ACTIVITIES.map(a => <option key={a.id} value={a.id}>{a.label}{a.cals ? ` (~${a.cals} kcal)` : ""}</option>)}
+              </select>
+              {t.burn > 0 && (
+                <div style={{ marginTop: 10, fontSize: 12, color: "#34d399", display: "flex", justifyContent: "space-between" }}>
+                  <span>Calorías quemadas (est.)</span>
+                  <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700 }}>−{t.burn} kcal</span>
+                </div>
+              )}
+            </div>
+            <div className="card">
+              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Ecuación</div>
+              {[
+                ["Ingerido", Math.round(t.cals), "#38bdf8", ""],
+                ["Actividad (quemado)", t.burn, "#34d399", "−"],
+                ["TDEE base", TDEE_BASE, "#2a4050", "−"]
+              ].map(([label, val, color, sign], i) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: i < 2 ? "1px solid #0e1520" : "none" }}>
+                  <span style={{ fontSize: 11, color: "#2a4050" }}>{label}</span>
+                  <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, color }}>{sign}{val} kcal</span>
+                </div>
+              ))}
+              <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 8, background: "#080b0f", border: `1px solid ${balColor}33`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".1em", textTransform: "uppercase" }}>Balance neto</div>
+                  <div style={{ fontSize: 10, color: balColor, marginTop: 3 }}>
+                    {t.balance > 300 ? "Superávit calórico" : t.balance < -300 ? "Déficit calórico" : "Cerca del mantenimiento"}
+                  </div>
+                </div>
+                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 30, fontWeight: 800, color: balColor }}>
+                  {t.balance > 0 ? "+" : ""}{Math.round(t.balance)}
+                </div>
+              </div>
+            </div>
+            <div className="card">
+              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Macros vs objetivos</div>
+              {[
+                ["Proteína", Math.round(t.protein), 145, "#60a5fa"],
+                ["Carbohidratos", Math.round(t.carbs), 250, "#34d399"],
+                ["Grasas", Math.round(t.fat), 70, "#fbbf24"]
+              ].map(([label, val, goal, color]) => (
+                <div key={label} style={{ marginBottom: 13 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                    <span style={{ fontSize: 11, color: "#4a6070" }}>{label}</span>
+                    <span style={{ fontSize: 11, color }}>{val}g / {goal}g</span>
+                  </div>
+                  <div style={{ background: "#0e1520", borderRadius: 3, height: 5, overflow: "hidden" }}>
+                    <div style={{ width: `${Math.min(100, val/goal*100)}%`, background: color, height: "100%", borderRadius: 3, transition: "width .5s" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="card" style={{ background: "#0a0f1a", borderColor: "#131c30" }}>
+              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Resumen total registrado</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {[
+                  ["Días", `${trend.length}`, "#38bdf8"],
+                  ["Balance total", `${totalBalance > 0 ? "+" : ""}${Math.round(totalBalance)} kcal`, "#34d399"],
+                  ["Prom. diario", `${avgCals} kcal`, "#38bdf8"],
+                  ["Prom. balance", `${avgBalance > 0 ? "+" : ""}${avgBalance} kcal`, avgBalance < 0 ? "#34d399" : "#f87171"],
+                ].map(([label, val, color]) => (
+                  <div key={label} style={{ background: "#080b0f", borderRadius: 7, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 9, color: "#1e3040", marginBottom: 3 }}>{label}</div>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "peso" && (
+          <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="card">
+              <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Perfil</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                {[
+                  ["Altura", `${HEIGHT_CM} cm`, "#38bdf8"],
+                  ["Peso actual", lastWeight ? `${lastWeight.kg} kg` : "—", "#a78bfa"],
+                  ["IMC", lastWeight ? bmi(lastWeight.kg) : "—", "#34d399"],
+                ].map(([label, val, color]) => (
+                  <div key={label} style={{ background: "#0a0f14", borderRadius: 8, padding: "12px 10px", textAlign: "center" }}>
+                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, color }}>{val}</div>
+                    <div style={{ fontSize: 8, color: "#1e3040", marginTop: 3 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+              {weightChange !== null && weights.length > 1 && (
+                <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 7, background: "#080b0f", border: `1px solid ${parseFloat(weightChange) <= 0 ? "#34d39933" : "#f8717133"}` }}>
+                  <span style={{ fontSize: 10, color: "#2a4050" }}>Cambio desde inicio: </span>
+                  <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, color: parseFloat(weightChange) <= 0 ? "#34d399" : "#f87171" }}>
+                    {parseFloat(weightChange) > 0 ? "+" : ""}{weightChange} kg
+                  </span>
+                </div>
+              )}
+            </div>
+            <div className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase" }}>Registro de peso</div>
+                <button className="btn-g" style={{ fontSize: 10, padding: "6px 12px" }} onClick={() => setShowAddWeight(!showAddWeight)}>
+                  {showAddWeight ? "✕" : "+ Peso"}
+                </button>
+              </div>
+              {showAddWeight && (
+                <div className="fi" style={{ marginBottom: 14, display: "flex", gap: 8 }}>
+                  <input className="inp" type="date" value={weightForm.date} onChange={e => setWeightForm(f => ({ ...f, date: e.target.value }))} />
+                  <input className="inp" placeholder="kg" type="number" step="0.01" value={weightForm.kg} onChange={e => setWeightForm(f => ({ ...f, kg: e.target.value }))} style={{ width: 100 }} />
+                  <button className="btn" style={{ whiteSpace: "nowrap", padding: "9px 14px" }} onClick={addWeight}>OK</button>
+                </div>
+              )}
+              {weights.slice().reverse().map((w, i) => (
+                <div key={w.date} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < weights.length - 1 ? "1px solid #0e1520" : "none" }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: "#4a6070" }}>{fmtDate(w.date)}</div>
+                    <div style={{ fontSize: 9, color: "#1e3040", marginTop: 2 }}>{w.note}</div>
+                  </div>
+                  <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, color: "#a78bfa" }}>{w.kg} <span style={{ fontSize: 10, color: "#1e3040" }}>kg</span></div>
+                </div>
+              ))}
+            </div>
+            <div className="card" style={{ background: "#0a130e", borderColor: "#1a2e1e" }}>
+              <div style={{ fontSize: 9, color: "#2d6a45", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 8 }}>Objetivo</div>
+              <div style={{ fontSize: 11, color: "#4a8060", lineHeight: 1.7 }}>
+                Déficit de ~400-500 kcal/día → pérdida estimada de ~0.3-0.5 kg/semana.<br/>
+                Pesaje semanal: <span style={{ color: "#34d399" }}>lunes por la mañana, en ayunas</span>.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === "historial" && (
+          <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
+              <button className={`btn-g ${histTab === "days" ? "on" : ""}`} onClick={() => setHistTab("days")}>Días</button>
+              <button className={`btn-g ${histTab === "trend" ? "on" : ""}`} onClick={() => setHistTab("trend")}>Tendencia</button>
+            </div>
+
+            {histTab === "days" && history.days.slice().reverse().map(d => {
+              const tt = dayTotals(d);
+              const bc = tt.balance > 300 ? "#f87171" : tt.balance < -300 ? "#34d399" : "#fbbf24";
+              const protPctD = Math.min(100, Math.round(tt.protein / PROT_GOAL * 100));
+              const protColorD = protPctD >= 80 ? "#34d399" : protPctD >= 50 ? "#fbbf24" : "#f87171";
+              return (
+                <div key={d.date} className="card" style={{ cursor: "pointer" }} onClick={() => { setActiveDate(d.date); setTab("log"); }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div>
+                      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, color: "#c8dce8", marginBottom: 3 }}>{d.label || fmtDate(d.date)}</div>
+                      <div style={{ fontSize: 9, color: "#1e3040" }}>{d.meals.length} alimentos</div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 20, color: "#38bdf8" }}>{Math.round(tt.cals)}</div>
+                      <div style={{ fontSize: 9, color: bc, marginTop: 1 }}>{tt.balance > 0 ? "+" : ""}{Math.round(tt.balance)} bal</div>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <span className="badge" style={{ background: "#0e1a30", color: "#60a5fa" }}>P {Math.round(tt.protein)}g</span>
+                    <span className="badge" style={{ background: "#0a1a20", color: "#34d399" }}>C {Math.round(tt.carbs)}g</span>
+                    <span className="badge" style={{ background: "#1a1510", color: "#fbbf24" }}>G {Math.round(tt.fat)}g</span>
+                    {tt.burn > 0 && <span className="badge" style={{ background: "#0a1a14", color: "#4ade80" }}>⚡ −{tt.burn} kcal</span>}
+                  </div>
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                      <span style={{ fontSize: 8, color: "#1e3040" }}>Proteína</span>
+                      <span style={{ fontSize: 8, color: protColorD }}>{Math.round(tt.protein)}g / {PROT_GOAL}g</span>
+                    </div>
+                    <div className="prot-bar">
+                      <div className="prot-fill" style={{ width: `${protPctD}%`, background: protColorD }} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {histTab === "trend" && (
+              <div className="card">
+                <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 16 }}>Calorías por día</div>
+                <svg width="100%" viewBox={`0 0 ${Math.max(trend.length * 60, 200)} 115`} style={{ overflow: "visible" }}>
+                  <line x1="0" y1={80-(TDEE_BASE/maxCals)*80} x2={trend.length*60} y2={80-(TDEE_BASE/maxCals)*80} stroke="#1e3040" strokeWidth="1" strokeDasharray="4 3" />
+                  <text x={trend.length*60-2} y={80-(TDEE_BASE/maxCals)*80-4} fontSize="8" fill="#1e3040" fontFamily="JetBrains Mono" textAnchor="end">TDEE</text>
+                  {trend.map((d, i) => {
+                    const barH = Math.max(4, (d.cals/maxCals)*80);
+                    const x = i*60+8;
+                    const bc2 = d.balance > 300 ? "#f87171" : d.balance < -300 ? "#34d399" : "#38bdf8";
+                    return (
+                      <g key={d.date}>
+                        <rect x={x} y={80-barH} width={40} height={barH} rx={3} fill={bc2} opacity={d.date===activeDate?1:0.4} />
+                        <text x={x+20} y={98} textAnchor="middle" fontSize="6" fill="#1e3040" fontFamily="JetBrains Mono">{d.label.slice(0,6)}</text>
+                        <text x={x+20} y={80-barH-4} textAnchor="middle" fontSize="7" fill={bc2} fontFamily="JetBrains Mono">{Math.round(d.cals)}</text>
+                      </g>
+                    );
+                  })}
+                </svg>
+                <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", fontSize: 10, color: "#2a4050" }}>
+                  <span>Promedio: <span style={{ color: "#38bdf8" }}>{avgCals} kcal</span></span>
+                  <span>Balance medio: <span style={{ color: "#34d399" }}>{avgBalance} kcal</span></span>
+                </div>
+              </div>
+            )}
+
+            <div style={{ textAlign: "center", fontSize: 9, color: "#162028", paddingTop: 4 }}>
+              {history.days.length} días registrados
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
