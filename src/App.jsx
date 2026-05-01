@@ -395,6 +395,8 @@ export default function App() {
     setAiText("");
     setShowAI(false);
   }
+
+  if (!history || !weights) {
     return (
       <div style={{ background: "#080b0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <style>{css}</style>
