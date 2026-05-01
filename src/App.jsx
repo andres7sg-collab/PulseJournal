@@ -36,6 +36,19 @@ const GYM_ACTIVITIES = [
   { id: "pasos_9233", label: "9,233 pasos", cals: 305 },
   { id: "weights75_pasos_11k", label: "Pesas 75 min + 11,227 pasos", cals: 720 },
 ];
+const GYM_STEPS = {
+  "weights_pasos_11k": 11000,
+  "pasos_9700_flexiones": 9700,
+  "weights_pasos_9500": 9524,
+  "pasos_9062": 9062,
+  "weights90_pasos_11k": 11290,
+  "pasos_9300": 9300,
+  "weights_pasos_15k": 15015,
+  "pasos_4681": 4681,
+  "weights_pasos_5900": 5900,
+  "pasos_9233": 9233,
+  "weights75_pasos_11k": 11227,
+};
 const GYM_MAP = Object.fromEntries(GYM_ACTIVITIES.map(a => [a.id, a.cals]));
 
 const INITIAL_WEIGHTS = [
@@ -218,8 +231,9 @@ function dayTotals(day) {
   const protein = day.meals.reduce((s, m) => s + (m.protein || 0), 0);
   const carbs = day.meals.reduce((s, m) => s + (m.carbs || 0), 0);
   const fat = day.meals.reduce((s, m) => s + (m.fat || 0), 0);
-  const burn = GYM_MAP[day.gym] || 0;
-  return { cals, protein, carbs, fat, burn, balance: cals - burn - TDEE_BASE };
+  const burn = day.oura?.active_calories || GYM_MAP[day.gym] || 0;
+  const steps = day.oura?.steps || GYM_STEPS[day.gym] || day.manualSteps || null;
+  return { cals, protein, carbs, fat, burn, steps, balance: cals - burn - TDEE_BASE };
 }
 
 function bmi(kg) { return (kg / ((HEIGHT_CM / 100) ** 2)).toFixed(1); }
@@ -278,6 +292,8 @@ export default function App() {
   const [weightForm, setWeightForm] = useState({ date: "", kg: "" });
   const [saving, setSaving] = useState(false);
   const [histTab, setHistTab] = useState("days");
+  const [ouraLoading, setOuraLoading] = useState(false);
+  const [ouraError, setOuraError] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -356,6 +372,31 @@ export default function App() {
     setForm({ name:"", cals:"", prot:"", carbs:"", fat:"", time:"13:00", note:"" });
     setShowAdd(false);
   };
+  const fetchOura = async (dateStr) => {
+    setOuraLoading(true);
+    setOuraError(null);
+    try {
+      const res = await fetch(`/api/oura?start_date=${dateStr}&end_date=${dateStr}`);
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const data = await res.json();
+      const item = data.data?.[0];
+      if (!item) throw new Error("Sin datos para esta fecha");
+      const ouraData = {
+        steps: item.steps,
+        active_calories: item.active_calories,
+        total_calories: item.total_calories,
+        equivalent_walking_distance: item.equivalent_walking_distance,
+        fetched_at: new Date().toISOString(),
+      };
+      const newDays = history.days.map(d => d.date === dateStr ? { ...d, oura: ouraData } : d);
+      update(newDays);
+    } catch (e) {
+      setOuraError(e.message);
+    } finally {
+      setOuraLoading(false);
+    }
+  };
+
   const addWeight = () => {
     if (!weightForm.date || !weightForm.kg) return;
     const newW = [...weights.filter(w => w.date !== weightForm.date), { date: weightForm.date, kg: parseFloat(weightForm.kg), note: "Manual" }].sort((a,b) => a.date.localeCompare(b.date));
@@ -392,13 +433,30 @@ export default function App() {
               {saving && <div className="saving">guardando…</div>}
             </div>
           </div>
-          <div style={{ marginBottom: 12, padding: "8px 12px", background: "#0a0f14", borderRadius: 7, border: "1px solid #0e1a20" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <span style={{ fontSize: 9, color: "#2a4050", letterSpacing: ".1em", textTransform: "uppercase" }}>Proteína del día</span>
-              <span style={{ fontSize: 10, color: protColor }}>{Math.round(t.protein)}g / {PROT_GOAL}g</span>
+          <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+            {/* Proteína */}
+            <div style={{ padding: "7px 12px", background: "#0a0f14", borderRadius: 7, border: "1px solid #0e1a20" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 9, color: "#2a4050", letterSpacing: ".1em", textTransform: "uppercase" }}>Proteína</span>
+                <span style={{ fontSize: 10, color: protColor }}>{Math.round(t.protein)}g / {PROT_GOAL}g</span>
+              </div>
+              <div className="prot-bar"><div className="prot-fill" style={{ width: `${protPct}%`, background: protColor }} /></div>
             </div>
-            <div className="prot-bar">
-              <div className="prot-fill" style={{ width: `${protPct}%`, background: protColor }} />
+            {/* Calorías quemadas */}
+            <div style={{ padding: "7px 12px", background: "#0a0f14", borderRadius: 7, border: "1px solid #0e1a20" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 9, color: "#2a4050", letterSpacing: ".1em", textTransform: "uppercase" }}>Quemado</span>
+                <span style={{ fontSize: 10, color: t.burn > 0 ? "#34d399" : "#2a4050" }}>{t.burn > 0 ? `${t.burn} kcal` : "sin actividad"}</span>
+              </div>
+              <div className="prot-bar"><div className="prot-fill" style={{ width: `${Math.min(100, (t.burn / 800) * 100)}%`, background: "#34d399" }} /></div>
+            </div>
+            {/* Pasos */}
+            <div style={{ padding: "7px 12px", background: "#0a0f14", borderRadius: 7, border: "1px solid #0e1a20" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ fontSize: 9, color: "#2a4050", letterSpacing: ".1em", textTransform: "uppercase" }}>Pasos</span>
+                <span style={{ fontSize: 10, color: t.steps ? (t.steps >= 8000 ? "#34d399" : t.steps <= 3000 ? "#f87171" : "#fbbf24") : "#2a4050" }}>{t.steps ? t.steps.toLocaleString("es-ES") : "—"}</span>
+              </div>
+              <div className="prot-bar"><div className="prot-fill" style={{ width: `${Math.min(100, ((t.steps || 0) / 15000) * 100)}%`, background: t.steps >= 8000 ? "#34d399" : t.steps <= 3000 ? "#f87171" : "#fbbf24" }} /></div>
             </div>
           </div>
           <div style={{ display: "flex" }}>
@@ -414,7 +472,7 @@ export default function App() {
       <div style={{ maxWidth: 500, margin: "0 auto", padding: "20px 20px" }}>
 
         <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 6, marginBottom: 20, scrollbarWidth: "none" }}>
-          {history.days.map(d => {
+          {history.days.slice().reverse().map(d => {
             const tt = dayTotals(d);
             return (
               <div key={d.date} className={`day-pill ${d.date === activeDate ? "active" : ""}`}
@@ -429,6 +487,30 @@ export default function App() {
 
         {tab === "log" && (
           <div className="fi">
+            {/* Oura Sync card */}
+            <div className="card" style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 9, color: "#1e3040", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 4 }}>Oura Ring</div>
+                {day.oura ? (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 10, color: "#34d399" }}>👟 {day.oura.steps?.toLocaleString("es-ES")} pasos</span>
+                    <span style={{ fontSize: 10, color: "#34d399" }}>🔥 {day.oura.active_calories} kcal</span>
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 10, color: "#2a4050" }}>
+                    {GYM_MAP[day.gym] > 0 ? `${GYM_MAP[day.gym]} kcal (manual)` : "Sin datos de actividad"}
+                  </div>
+                )}
+                {ouraError && <div style={{ fontSize: 9, color: "#f87171", marginTop: 3 }}>{ouraError}</div>}
+              </div>
+              <button
+                onClick={() => fetchOura(day.date)}
+                disabled={ouraLoading}
+                style={{ background: "#0e1a26", border: "1px solid #38bdf8", color: "#38bdf8", borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 10, flexShrink: 0, marginLeft: 10 }}>
+                {ouraLoading ? "↻" : day.oura ? "↻ Sync" : "Sync"}
+              </button>
+            </div>
+
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <span style={{ fontSize: 10, color: "#1e3040", letterSpacing: ".08em", textTransform: "uppercase" }}>{day.meals.length} alimentos</span>
               <button className="btn-g" onClick={() => setShowAdd(!showAdd)}>{showAdd ? "✕ Cancelar" : "+ Añadir"}</button>
