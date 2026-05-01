@@ -294,6 +294,11 @@ export default function App() {
   const [histTab, setHistTab] = useState("days");
   const [ouraLoading, setOuraLoading] = useState(false);
   const [ouraError, setOuraError] = useState(null);
+  const [showAI, setShowAI] = useState(false);
+  const [aiText, setAiText] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiItems, setAiItems] = useState([]);
+  const [aiError, setAiError] = useState(null);
 
   useEffect(function() {
     try {
@@ -360,7 +365,36 @@ export default function App() {
       .finally(function() { setOuraLoading(false); });
   }
 
-  if (!history || !weights) {
+  function estimateAI() {
+    setAiLoading(true);
+    setAiError(null);
+    setAiItems([]);
+    fetch("/api/estimate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: aiText })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.error) { setAiError(data.error); return; }
+        setAiItems(data.items || []);
+      })
+      .catch(function(e) { setAiError(e.message); })
+      .finally(function() { setAiLoading(false); });
+  }
+
+  function confirmAI() {
+    var newMeals = aiItems.map(function(item) {
+      return Object.assign({ id: Date.now() + Math.random() }, item);
+    });
+    var newDays = history.days.map(function(d) {
+      return d.date === activeDate ? Object.assign({}, d, { meals: d.meals.concat(newMeals) }) : d;
+    });
+    update(newDays);
+    setAiItems([]);
+    setAiText("");
+    setShowAI(false);
+  }
     return (
       <div style={{ background: "#080b0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <style>{css}</style>
@@ -481,6 +515,25 @@ export default function App() {
               </div>
             );
           })}
+          <div className="day-pill" onClick={function() {
+            var today = new Date();
+            var yy = today.getFullYear();
+            var mm = today.getMonth() + 1;
+            var dd = today.getDate();
+            var dateStr = yy + "-" + (mm < 10 ? "0" + mm : mm) + "-" + (dd < 10 ? "0" + dd : dd);
+            var label = today.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
+            if (history.days.find(function(d) { return d.date === dateStr; })) {
+              setActiveDate(dateStr);
+              return;
+            }
+            var newDay = { date: dateStr, label: label, gym: "", meals: [] };
+            var newDays = history.days.concat([newDay]);
+            newDays.sort(function(a, b) { return a.date.localeCompare(b.date); });
+            update(newDays);
+            setActiveDate(dateStr);
+          }} style={{ minWidth: 60, display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #1a2230" }}>
+            <div style={{ fontSize: 20, color: "#2a4a60", lineHeight: 1 }}>+</div>
+          </div>
         </div>
 
         {tab === "log" && (
@@ -507,8 +560,52 @@ export default function App() {
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <span style={{ fontSize: 10, color: "#6688aa", letterSpacing: ".08em", textTransform: "uppercase" }}>{day.meals.length} alimentos</span>
-              <button className="btn-g" onClick={function() { setShowAdd(!showAdd); }}>{showAdd ? "✕ Cancelar" : "+ Añadir"}</button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn-g" onClick={function() { setShowAI(!showAI); setShowAdd(false); }}>{showAI ? "✕" : "✨ IA"}</button>
+                <button className="btn-g" onClick={function() { setShowAdd(!showAdd); setShowAI(false); }}>{showAdd ? "✕" : "+ Manual"}</button>
+              </div>
             </div>
+
+            {showAI && (
+              <div className="fi card" style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 9 }}>
+                <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Describe lo que comiste</div>
+                <textarea
+                  className="inp"
+                  placeholder="Ej: café solo, bocata de jamón serrano, manzana y un yogurt griego..."
+                  value={aiText}
+                  onChange={function(e) { setAiText(e.target.value); }}
+                  style={{ minHeight: 80, resize: "vertical", fontFamily: "'JetBrains Mono',monospace" }}
+                />
+                {aiError && <div style={{ fontSize: 9, color: "#f87171" }}>{aiError}</div>}
+                {aiItems.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Estimación — confirma para guardar:</div>
+                    {aiItems.map(function(item, idx) {
+                      return (
+                        <div key={idx} style={{ background: "#080b0f", borderRadius: 7, padding: "10px 12px", border: "1px solid #1a2230" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <span style={{ fontSize: 12, color: "#c8dce8", fontFamily: "'Syne',sans-serif", fontWeight: 600 }}>{item.name}</span>
+                            <span style={{ fontSize: 14, color: "#38bdf8", fontFamily: "'Syne',sans-serif", fontWeight: 800 }}>{item.cals} kcal</span>
+                          </div>
+                          <div style={{ display: "flex", gap: 5, marginTop: 5 }}>
+                            <span className="badge" style={{ background: "#0e1a30", color: "#60a5fa" }}>P {item.protein}g</span>
+                            <span className="badge" style={{ background: "#0a1a20", color: "#34d399" }}>C {item.carbs}g</span>
+                            <span className="badge" style={{ background: "#1a1510", color: "#fbbf24" }}>G {item.fat}g</span>
+                            <span style={{ fontSize: 9, color: "#6688aa", marginLeft: 4, alignSelf: "center" }}>{item.time}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <button className="btn" onClick={confirmAI}>Guardar todos</button>
+                  </div>
+                )}
+                {aiItems.length === 0 && (
+                  <button className="btn" disabled={aiLoading || !aiText.trim()} onClick={estimateAI} style={{ opacity: aiLoading ? 0.6 : 1 }}>
+                    {aiLoading ? "Estimando..." : "Estimar con IA"}
+                  </button>
+                )}
+              </div>
+            )}
 
             {showAdd && (
               <div className="fi card" style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 9 }}>
