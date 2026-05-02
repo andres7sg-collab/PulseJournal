@@ -400,10 +400,11 @@ export default function App() {
     })
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        if (data.error) { setAiError(data.error); return; }
-        setAiItems(data.items || []);
+        if (data.error) { setAiError("Error: " + data.error); return; }
+        if (!data.items || !Array.isArray(data.items)) { setAiError("Respuesta inesperada, intenta de nuevo"); return; }
+        setAiItems(data.items);
       })
-      .catch(function(e) { setAiError(e.message); })
+      .catch(function(e) { setAiError("Error de conexión: " + e.message); })
       .finally(function() { setAiLoading(false); });
   }
 
