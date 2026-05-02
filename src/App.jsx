@@ -341,7 +341,6 @@ export default function App() {
       }
       stored.days.sort(function(a, b) { return a.date.localeCompare(b.date); });
       stored.weights.sort(function(a, b) { return a.date.localeCompare(b.date); });
-      if (changed) localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
       setHistory({ days: stored.days });
       setWeights(stored.weights);
       setActiveDate(stored.days[stored.days.length - 1].date);
