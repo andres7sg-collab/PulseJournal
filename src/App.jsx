@@ -880,24 +880,58 @@ export default function App() {
 
             {histTab === "trend" && (
               <div className="card">
-                <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 16 }}>Calorías por día</div>
-                <svg width="100%" viewBox={"0 0 " + Math.max(trend.length * 60, 200) + " 115"} style={{ overflow: "visible" }}>
-                  <line x1="0" y1={80 - (TDEE_BASE / maxCals) * 80} x2={trend.length * 60} y2={80 - (TDEE_BASE / maxCals) * 80} stroke="#445566" strokeWidth="1" strokeDasharray="4 3" />
-                  <text x={trend.length * 60 - 2} y={80 - (TDEE_BASE / maxCals) * 80 - 4} fontSize="8" fill="#6688aa" fontFamily="JetBrains Mono" textAnchor="end">TDEE</text>
-                  {trend.map(function(d, i) {
-                    var barH = Math.max(4, (d.cals / maxCals) * 80);
-                    var x = i * 60 + 8;
-                    var bc2 = d.balance > 300 ? "#f87171" : d.balance < -300 ? "#34d399" : "#38bdf8";
+                <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 4 }}>Calorías por día</div>
+                <div style={{ fontSize: 8, color: "#445566", marginBottom: 12 }}>Scroll para ver todos los días →</div>
+                <div style={{ overflowX: "auto", overflowY: "visible", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
+                  {(function() {
+                    var BAR_W = 44;
+                    var GAP = 16;
+                    var STEP = BAR_W + GAP;
+                    var H = 100;
+                    var n = trend.length;
+                    var totalW = n * STEP + 20;
+                    var visibleW = 7 * STEP;
+                    var trendMaxCals = Math.max.apply(null, trend.map(function(d) { return d.cals; }).concat([TDEE_BASE + 200]));
+
+                    // Trend line points (linear regression)
+                    var validDays = trend.filter(function(d) { return d.cals > 0; });
+                    var trendPoints = "";
+                    if (validDays.length >= 2) {
+                      var sumX = 0; var sumY = 0; var sumXY = 0; var sumX2 = 0; var vn = validDays.length;
+                      validDays.forEach(function(d, i) { sumX += i; sumY += d.cals; sumXY += i * d.cals; sumX2 += i * i; });
+                      var slope = (vn * sumXY - sumX * sumY) / (vn * sumX2 - sumX * sumX);
+                      var intercept = (sumY - slope * sumX) / vn;
+                      var firstIdx = trend.indexOf(validDays[0]);
+                      var lastIdx = trend.indexOf(validDays[validDays.length - 1]);
+                      var x0 = firstIdx * STEP + BAR_W / 2 + 10;
+                      var y0 = H - (intercept / trendMaxCals) * H;
+                      var x1 = lastIdx * STEP + BAR_W / 2 + 10;
+                      var y1 = H - ((intercept + slope * (validDays.length - 1)) / trendMaxCals) * H;
+                      trendPoints = x0 + "," + y0 + " " + x1 + "," + y1;
+                    }
+
                     return (
-                      <g key={d.date}>
-                        <rect x={x} y={80 - barH} width={40} height={barH} rx={3} fill={bc2} opacity={d.date === activeDate ? 1 : 0.4} />
-                        <text x={x + 20} y={98} textAnchor="middle" fontSize="6" fill="#6688aa" fontFamily="JetBrains Mono">{d.label.slice(0, 6)}</text>
-                        <text x={x + 20} y={80 - barH - 4} textAnchor="middle" fontSize="7" fill={bc2} fontFamily="JetBrains Mono">{Math.round(d.cals)}</text>
-                      </g>
+                      <svg width={Math.max(totalW, visibleW)} height="130" viewBox={"0 0 " + Math.max(totalW, visibleW) + " 130"} style={{ display: "block", minWidth: totalW }}>
+                        <line x1="0" y1={H - (TDEE_BASE / trendMaxCals) * H} x2={totalW} y2={H - (TDEE_BASE / trendMaxCals) * H} stroke="#2a3848" strokeWidth="1" strokeDasharray="4 3" />
+                        <text x={totalW - 4} y={H - (TDEE_BASE / trendMaxCals) * H - 3} fontSize="7" fill="#445566" fontFamily="JetBrains Mono" textAnchor="end">TDEE</text>
+                        {trend.map(function(d, i) {
+                          var barH = d.cals > 0 ? Math.max(4, (d.cals / trendMaxCals) * H) : 0;
+                          var x = i * STEP + 10;
+                          var bc2 = d.balance > 300 ? "#f87171" : d.balance < -300 ? "#34d399" : "#38bdf8";
+                          return (
+                            <g key={d.date}>
+                              {barH > 0 && <rect x={x} y={H - barH} width={BAR_W} height={barH} rx={3} fill={bc2} opacity={d.date === activeDate ? 1 : 0.45} />}
+                              <text x={x + BAR_W / 2} y={118} textAnchor="middle" fontSize="6" fill="#445566" fontFamily="JetBrains Mono">{(d.label || "").slice(0, 7)}</text>
+                              {barH > 0 && <text x={x + BAR_W / 2} y={H - barH - 4} textAnchor="middle" fontSize="7" fill={bc2} fontFamily="JetBrains Mono">{Math.round(d.cals)}</text>}
+                            </g>
+                          );
+                        })}
+                        {trendPoints && <polyline points={trendPoints} fill="none" stroke="#7dd3fc" strokeWidth="2" strokeLinecap="round" opacity="0.8" />}
+                      </svg>
                     );
-                  })}
-                </svg>
-                <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", fontSize: 10, color: "#6688aa" }}>
+                  })()}
+                </div>
+                <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", fontSize: 10, color: "#6688aa" }}>
                   <span>Promedio: <span style={{ color: "#38bdf8" }}>{avgCals} kcal</span></span>
                   <span>Balance medio: <span style={{ color: "#34d399" }}>{avgBalance} kcal</span></span>
                 </div>
