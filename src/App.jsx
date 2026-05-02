@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-const STORAGE_KEY = "calorie_history_v17";
+const STORAGE_KEY = "calorie_history_v18";
 const TDEE_BASE = 2300;
 const PROT_GOAL = 145;
 const HEIGHT_CM = 186;
@@ -318,6 +318,28 @@ export default function App() {
           changed = true;
         }
       });
+      // Auto-generate days from last seed to today
+      var today = new Date();
+      var yy = today.getFullYear();
+      var mm = today.getMonth() + 1;
+      var dd = today.getDate();
+      var todayStr = yy + "-" + (mm < 10 ? "0" + mm : mm) + "-" + (dd < 10 ? "0" + dd : dd);
+      var lastSeed = SEED_DAYS[SEED_DAYS.length - 1].date;
+      var cursor = new Date(lastSeed);
+      cursor.setDate(cursor.getDate() + 1);
+      while (true) {
+        var cy = cursor.getFullYear();
+        var cmo = cursor.getMonth() + 1;
+        var cdd = cursor.getDate();
+        var curStr = cy + "-" + (cmo < 10 ? "0" + cmo : cmo) + "-" + (cdd < 10 ? "0" + cdd : cdd);
+        if (curStr > todayStr) break;
+        if (!stored.days.find(function(d) { return d.date === curStr; })) {
+          var label = cursor.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
+          stored.days.push({ date: curStr, label: label, gym: "", meals: [] });
+          changed = true;
+        }
+        cursor.setDate(cursor.getDate() + 1);
+      }
       stored.days.sort(function(a, b) { return a.date.localeCompare(b.date); });
       stored.weights.sort(function(a, b) { return a.date.localeCompare(b.date); });
       if (changed || !raw) localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
@@ -572,11 +594,10 @@ export default function App() {
               <div className="fi card" style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 9 }}>
                 <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Describe lo que comiste</div>
                 <textarea
-                  className="inp"
+                  style={{ background: "#0e1318", border: "1px solid #1a2230", color: "#d4dde8", padding: "9px 12px", borderRadius: 6, fontSize: 12, outline: "none", width: "100%", minHeight: 80, resize: "vertical", fontFamily: "'JetBrains Mono',monospace", boxSizing: "border-box" }}
                   placeholder="Ej: café solo, bocata de jamón serrano, manzana y un yogurt griego..."
                   value={aiText}
                   onChange={function(e) { setAiText(e.target.value); }}
-                  style={{ minHeight: 80, resize: "vertical", fontFamily: "'JetBrains Mono',monospace" }}
                 />
                 {aiError && <div style={{ fontSize: 9, color: "#f87171" }}>{aiError}</div>}
                 {aiItems.length > 0 && (
