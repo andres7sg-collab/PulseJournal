@@ -532,10 +532,14 @@ export default function App() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ days: [day], weights: weights })
                   })
-                  .then(function() { setSaving(false); })
-                  .catch(function() { setSaving(false); });
+                  .then(function(r) { return r.json(); })
+                  .then(function(data) { 
+                    setSaving(false);
+                    alert(JSON.stringify(data));
+                  })
+                  .catch(function(e) { setSaving(false); alert("Error: " + e.message); });
                 }}
-                style={{ marginTop: 6, background: saving ? "#0e1a26" : "#0e1a26", border: "1px solid " + (saving ? "#34d399" : "#1a2a3a"), color: saving ? "#34d399" : "#6688aa", borderRadius: 5, padding: "4px 10px", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 9, letterSpacing: ".06em" }}>
+                style={{ marginTop: 6, background: "#0e1a26", border: "1px solid " + (saving ? "#34d399" : "#1a2a3a"), color: saving ? "#34d399" : "#6688aa", borderRadius: 5, padding: "4px 10px", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 9, letterSpacing: ".06em" }}>
                 {saving ? "✓ guardado" : "💾 guardar"}
               </button>
             </div>
