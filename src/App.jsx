@@ -524,7 +524,20 @@ export default function App() {
             <div style={{ textAlign: "right" }}>
               <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: "#38bdf8", lineHeight: 1 }}>{Math.round(t.cals)}</div>
               <div style={{ fontSize: 9, color: "#6688aa", marginTop: 2 }}>kcal ingeridas</div>
-              {saving && <div className="saving">guardando...</div>}
+              <button
+                onClick={function() {
+                  setSaving(true);
+                  fetch("/api/db", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ days: [day], weights: weights })
+                  })
+                  .then(function() { setSaving(false); })
+                  .catch(function() { setSaving(false); });
+                }}
+                style={{ marginTop: 6, background: saving ? "#0e1a26" : "#0e1a26", border: "1px solid " + (saving ? "#34d399" : "#1a2a3a"), color: saving ? "#34d399" : "#6688aa", borderRadius: 5, padding: "4px 10px", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 9, letterSpacing: ".06em" }}>
+                {saving ? "✓ guardado" : "💾 guardar"}
+              </button>
             </div>
           </div>
 
