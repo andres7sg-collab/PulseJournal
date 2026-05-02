@@ -373,12 +373,20 @@ export default function App() {
       });
   }, []);
 
-  var save = useCallback(function(days, ws) {
+  var save = useCallback(function(days, ws, changedDate) {
     setSaving(true);
+    var payload = {};
+    if (changedDate) {
+      var changedDay = days.find(function(d) { return d.date === changedDate; });
+      payload.days = changedDay ? [changedDay] : [];
+    } else {
+      payload.days = days;
+    }
+    payload.weights = ws;
     fetch("/api/db", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ days: days, weights: ws })
+      body: JSON.stringify(payload)
     }).catch(function() {});
     setTimeout(function() { setSaving(false); }, 700);
   }, []);
@@ -387,7 +395,7 @@ export default function App() {
     var w = newWeights !== undefined ? newWeights : weights;
     setHistory({ days: newDays });
     if (newWeights !== undefined) setWeights(newWeights);
-    save(newDays, w);
+    save(newDays, w, activeDate);
   }
 
   function fetchOura(dateStr) {
