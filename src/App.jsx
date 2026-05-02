@@ -502,10 +502,15 @@ export default function App() {
   }
   function addWeight() {
     if (!weightForm.date || !weightForm.kg) return;
-    var newW = weights.filter(function(w) { return w.date !== weightForm.date; }).concat([{ date: weightForm.date, kg: parseFloat(weightForm.kg), note: "Manual" }]);
+    var newEntry = { date: weightForm.date, kg: parseFloat(weightForm.kg), note: "Manual" };
+    var newW = weights.filter(function(w) { return w.date !== weightForm.date; }).concat([newEntry]);
     newW.sort(function(a, b) { return a.date.localeCompare(b.date); });
     setWeights(newW);
-    save(history.days, newW);
+    fetch("/api/db", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ days: [], weights: [newEntry] })
+    }).catch(function() {});
     setWeightForm({ date: "", kg: "" });
     setShowAddWeight(false);
   }
@@ -532,12 +537,8 @@ export default function App() {
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ days: [day], weights: weights })
                   })
-                  .then(function(r) { return r.json(); })
-                  .then(function(data) { 
-                    setSaving(false);
-                    alert(JSON.stringify(data));
-                  })
-                  .catch(function(e) { setSaving(false); alert("Error: " + e.message); });
+                  .then(function() { setSaving(false); })
+                  .catch(function() { setSaving(false); });
                 }}
                 style={{ marginTop: 6, background: "#0e1a26", border: "1px solid " + (saving ? "#34d399" : "#1a2a3a"), color: saving ? "#34d399" : "#6688aa", borderRadius: 5, padding: "4px 10px", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 9, letterSpacing: ".06em" }}>
                 {saving ? "✓ guardado" : "💾 guardar"}
