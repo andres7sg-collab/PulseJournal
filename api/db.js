@@ -38,7 +38,7 @@ export default async function handler(req, res) {
         var daysPayload = body.days.map(function(d) {
           return { user_id: "andres", date: d.date, label: d.label || "", gym: d.gym || "", meals: d.meals || [], oura: d.oura || null };
         });
-        var dr2 = await fetch(SUPABASE_URL + "/rest/v1/pulso_days", {
+        var dr2 = await fetch(SUPABASE_URL + "/rest/v1/pulso_days?on_conflict=date", {
           method: "POST",
           headers: upsertHeaders,
           body: JSON.stringify(daysPayload)
@@ -51,7 +51,7 @@ export default async function handler(req, res) {
         var weightsPayload = body.weights.map(function(w) {
           return { user_id: "andres", date: w.date, kg: w.kg, note: w.note || "" };
         });
-        var wr2 = await fetch(SUPABASE_URL + "/rest/v1/pulso_weights", {
+        var wr2 = await fetch(SUPABASE_URL + "/rest/v1/pulso_weights?on_conflict=date", {
           method: "POST",
           headers: upsertHeaders2,
           body: JSON.stringify(weightsPayload)
