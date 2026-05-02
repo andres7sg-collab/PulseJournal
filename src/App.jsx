@@ -327,15 +327,17 @@ export default function App() {
       var lastSeed = SEED_DAYS[SEED_DAYS.length - 1].date;
       var cursor = new Date(lastSeed);
       cursor.setDate(cursor.getDate() + 1);
+      var existingDates = stored.days.map(function(d) { return d.date; });
       while (true) {
         var cy = cursor.getFullYear();
         var cmo = cursor.getMonth() + 1;
         var cdd = cursor.getDate();
         var curStr = cy + "-" + (cmo < 10 ? "0" + cmo : cmo) + "-" + (cdd < 10 ? "0" + cdd : cdd);
         if (curStr > todayStr) break;
-        if (!stored.days.find(function(d) { return d.date === curStr; })) {
+        if (existingDates.indexOf(curStr) === -1) {
           var label = cursor.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
           stored.days.push({ date: curStr, label: label, gym: "", meals: [] });
+          existingDates.push(curStr);
           changed = true;
         }
         cursor.setDate(cursor.getDate() + 1);
