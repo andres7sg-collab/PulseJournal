@@ -452,7 +452,6 @@ export default function App() {
   var firstWeight = weights[0] ? weights[0].kg : 82.15;
   var weightChange = weights.length > 1 ? (lastWeight.kg - firstWeight).toFixed(2) : null;
   var trend = history.days.map(function(d) { var tt = dayTotals(d); return Object.assign({}, tt, { date: d.date, label: d.label || fmtDate(d.date) }); });
-  var maxCals = Math.max.apply(null, trend.map(function(d) { return d.cals; }).concat([TDEE_BASE + 300]));
   var totalCals = trend.reduce(function(s, d) { return s + d.cals; }, 0);
   var totalBalance = trend.reduce(function(s, d) { return s + d.balance; }, 0);
   var avgCals = Math.round(totalCals / trend.length);
