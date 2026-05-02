@@ -301,9 +301,7 @@ export default function App() {
   const [aiError, setAiError] = useState(null);
 
   useEffect(function() {
-    try {
-      var raw = localStorage.getItem(STORAGE_KEY);
-      var stored = raw ? JSON.parse(raw) : { days: [], weights: [] };
+    function initWithData(stored) {
       if (!stored.weights) stored.weights = [];
       var changed = false;
       SEED_DAYS.forEach(function(seed) {
@@ -335,8 +333,8 @@ export default function App() {
         var curStr = cy + "-" + (cmo < 10 ? "0" + cmo : cmo) + "-" + (cdd < 10 ? "0" + cdd : cdd);
         if (curStr > todayStr) break;
         if (existingDates.indexOf(curStr) === -1) {
-          var label = cursor.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
-          stored.days.push({ date: curStr, label: label, gym: "", meals: [] });
+          var lbl = cursor.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
+          stored.days.push({ date: curStr, label: lbl, gym: "", meals: [] });
           existingDates.push(curStr);
           changed = true;
         }
@@ -344,20 +342,59 @@ export default function App() {
       }
       stored.days.sort(function(a, b) { return a.date.localeCompare(b.date); });
       stored.weights.sort(function(a, b) { return a.date.localeCompare(b.date); });
-      if (changed || !raw) localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+      if (changed) localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
       setHistory({ days: stored.days });
       setWeights(stored.weights);
       setActiveDate(stored.days[stored.days.length - 1].date);
-    } catch(e) {
-      setHistory({ days: SEED_DAYS });
-      setWeights(INITIAL_WEIGHTS);
-      setActiveDate(SEED_DAYS[SEED_DAYS.length - 1].date);
+      return { stored: stored, changed: changed };
     }
+
+    // Try Supabase first
+    fetch("/api/db")
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.days && data.days.length > 0) {
+          var result = initWithData({ days: data.days, weights: data.weights || [] });
+          if (result.changed) {
+            fetch("/api/db", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ days: result.stored.days, weights: result.stored.weights })
+            }).catch(function() {});
+          }
+        } else {
+          // Supabase empty — load from localStorage and push seed data
+          var raw = localStorage.getItem(STORAGE_KEY);
+          var local = raw ? JSON.parse(raw) : { days: [], weights: [] };
+          var result2 = initWithData(local);
+          fetch("/api/db", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ days: result2.stored.days, weights: result2.stored.weights })
+          }).catch(function() {});
+        }
+      })
+      .catch(function() {
+        // Supabase failed — use localStorage
+        try {
+          var raw2 = localStorage.getItem(STORAGE_KEY);
+          var stored2 = raw2 ? JSON.parse(raw2) : { days: [], weights: [] };
+          initWithData(stored2);
+        } catch(e) {
+          initWithData({ days: [], weights: [] });
+        }
+      });
   }, []);
 
   var save = useCallback(function(days, ws) {
     setSaving(true);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ days: days, weights: ws })); } catch(e) {}
+    // Sync to Supabase
+    fetch("/api/db", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ days: days, weights: ws })
+    }).catch(function() {});
     setTimeout(function() { setSaving(false); }, 700);
   }, []);
 
