@@ -349,12 +349,14 @@ export default function App() {
       return { stored: stored, changed: changed };
     }
 
-    // Try Supabase first
+    // Always load from Supabase first — it's the source of truth
     fetch("/api/db")
       .then(function(r) { return r.json(); })
       .then(function(data) {
         if (data.days && data.days.length > 0) {
+          // Supabase has data — use it, ignore localStorage
           var result = initWithData({ days: data.days, weights: data.weights || [] });
+          // Push any new seed/auto days back to Supabase
           if (result.changed) {
             fetch("/api/db", {
               method: "POST",
@@ -363,10 +365,8 @@ export default function App() {
             }).catch(function() {});
           }
         } else {
-          // Supabase empty — load from localStorage and push seed data
-          var raw = localStorage.getItem(STORAGE_KEY);
-          var local = raw ? JSON.parse(raw) : { days: [], weights: [] };
-          var result2 = initWithData(local);
+          // Supabase empty — first time setup, load seed data and push to Supabase
+          var result2 = initWithData({ days: [], weights: [] });
           fetch("/api/db", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -375,7 +375,7 @@ export default function App() {
         }
       })
       .catch(function() {
-        // Supabase failed — use localStorage
+        // Supabase failed (offline) — fall back to localStorage
         try {
           var raw2 = localStorage.getItem(STORAGE_KEY);
           var stored2 = raw2 ? JSON.parse(raw2) : { days: [], weights: [] };
