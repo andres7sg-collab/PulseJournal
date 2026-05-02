@@ -379,13 +379,23 @@ export default function App() {
     fetch("/api/oura?start_date=" + dateStr + "&end_date=" + nextDay)
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        var item = data.data && data.data[0];
-        if (!item) { setOuraError("Sin datos para esta fecha"); return; }
-        var ouraData = { steps: item.steps, active_calories: item.active_calories, total_calories: item.total_calories, equivalent_walking_distance: item.equivalent_walking_distance, fetched_at: new Date().toISOString() };
+        if (data.error) { setOuraError(data.error); return; }
+        if (!data.activity && !data.sleep && (!data.workouts || data.workouts.length === 0)) {
+          setOuraError("Sin datos para esta fecha");
+          return;
+        }
+        var ouraData = {
+          steps: data.activity ? data.activity.steps : null,
+          active_calories: data.activity ? data.activity.active_calories : null,
+          total_calories: data.activity ? data.activity.total_calories : null,
+          sleep_score: data.sleep ? data.sleep.score : null,
+          workouts: data.workouts || [],
+          fetched_at: new Date().toISOString(),
+        };
         var newDays = history.days.map(function(d2) { return d2.date === dateStr ? Object.assign({}, d2, { oura: ouraData }) : d2; });
         update(newDays);
       })
-      .catch(function(e) { setOuraError(e.message); })
+      .catch(function(e) { setOuraError("Error: " + e.message); })
       .finally(function() { setOuraLoading(false); });
   }
 
@@ -565,24 +575,47 @@ export default function App() {
 
         {tab === "log" && (
           <div className="fi">
-            <div className="card" style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 4 }}>Oura Ring</div>
-                {day.oura ? (
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 10, color: "#34d399" }}>👟 {day.oura.steps ? day.oura.steps.toLocaleString("es-ES") : "—"} pasos</span>
-                    <span style={{ fontSize: 10, color: "#34d399" }}>🔥 {day.oura.active_calories} kcal</span>
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 10, color: "#6688aa" }}>{GYM_MAP[day.gym] > 0 ? GYM_MAP[day.gym] + " kcal (manual)" : "Sin datos de actividad"}</div>
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 6 }}>Oura Ring</div>
+                  {day.oura ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        {day.oura.steps && <span style={{ fontSize: 10, color: "#34d399" }}>👟 {day.oura.steps.toLocaleString("es-ES")} pasos</span>}
+                        {day.oura.active_calories && <span style={{ fontSize: 10, color: "#34d399" }}>🔥 {day.oura.active_calories} kcal</span>}
+                        {day.oura.sleep_score && <span style={{ fontSize: 10, color: "#a78bfa" }}>😴 {day.oura.sleep_score} sueño</span>}
+                      </div>
+                      {day.oura.workouts && day.oura.workouts.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 2 }}>
+                          {day.oura.workouts.map(function(w, i) {
+                            var mins = w.duration ? Math.round(w.duration / 60) : null;
+                            var hrs = mins ? Math.floor(mins / 60) : 0;
+                            var rem = mins ? mins % 60 : 0;
+                            var durStr = hrs > 0 ? hrs + "h " + rem + "min" : (rem + "min");
+                            var activity = w.activity || w.sport || "Entrenamiento";
+                            var actMap = { "strength_training": "Entrenamiento de fuerza", "running": "Carrera", "walking": "Caminar", "cycling": "Ciclismo", "swimming": "Natación", "yoga": "Yoga", "hiit": "HIIT", "elliptical": "Elíptica", "rowing": "Remo" };
+                            var actLabel = actMap[activity] || activity;
+                            return (
+                              <div key={i} style={{ fontSize: 10, color: "#38bdf8" }}>
+                                💪 {actLabel}{mins ? " · " + durStr : ""}{w.calories ? " · " + w.calories + " cal" : ""}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 10, color: "#6688aa" }}>Sin datos — toca Sync para obtener actividad, sueño y entrenamientos</div>
+                  )}
+                  {ouraError && <div style={{ fontSize: 9, color: "#f87171", marginTop: 3 }}>{ouraError}</div>}
+                </div>
+                {canSync && (
+                  <button className="sync-btn" onClick={function() { fetchOura(day.date); }} disabled={ouraLoading}>
+                    {ouraLoading ? "↻" : day.oura ? "↻ Sync" : "Sync"}
+                  </button>
                 )}
-                {ouraError && <div style={{ fontSize: 9, color: "#f87171", marginTop: 3 }}>{ouraError}</div>}
               </div>
-              {canSync && (
-                <button className="sync-btn" onClick={function() { fetchOura(day.date); }} disabled={ouraLoading}>
-                  {ouraLoading ? "↻" : day.oura ? "↻ Sync" : "Sync"}
-                </button>
-              )}
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -678,16 +711,29 @@ export default function App() {
           <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="card">
               <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Actividad del día</div>
-              <select className="inp" value={day.gym || ""} onChange={function(e) { setGym(e.target.value); }}>
-                {GYM_ACTIVITIES.map(function(a) {
-                  return <option key={a.id} value={a.id}>{a.label}{a.cals ? " (~" + a.cals + " kcal)" : ""}</option>;
-                })}
-              </select>
-              {t.burn > 0 && (
-                <div style={{ marginTop: 10, fontSize: 12, color: "#34d399", display: "flex", justifyContent: "space-between" }}>
-                  <span>Calorías quemadas (est.)</span>
-                  <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700 }}>-{t.burn} kcal</span>
+              {day.oura ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {day.oura.workouts && day.oura.workouts.length > 0 && day.oura.workouts.map(function(w, i) {
+                    var mins = w.duration ? Math.round(w.duration / 60) : null;
+                    var hrs = mins ? Math.floor(mins / 60) : 0;
+                    var rem = mins ? mins % 60 : 0;
+                    var durStr = hrs > 0 ? hrs + "h " + rem + "min" : (rem + "min");
+                    var actMap = { "strength_training": "Entrenamiento de fuerza", "running": "Carrera", "walking": "Caminar", "cycling": "Ciclismo", "swimming": "Natación", "yoga": "Yoga", "hiit": "HIIT", "elliptical": "Elíptica", "rowing": "Remo" };
+                    var actLabel = actMap[w.activity || w.sport] || (w.activity || w.sport || "Entrenamiento");
+                    return (
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #0e1520" }}>
+                        <span style={{ fontSize: 11, color: "#c8dce8" }}>💪 {actLabel}{mins ? " · " + durStr : ""}</span>
+                        <span style={{ fontSize: 11, color: "#34d399", fontFamily: "'Syne',sans-serif", fontWeight: 700 }}>{w.calories ? w.calories + " cal" : ""}</span>
+                      </div>
+                    );
+                  })}
+                  <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                    <span style={{ fontSize: 11, color: "#6688aa" }}>Total quemado</span>
+                    <span style={{ fontSize: 14, color: "#34d399", fontFamily: "'Syne',sans-serif", fontWeight: 700 }}>-{t.burn} kcal</span>
+                  </div>
                 </div>
+              ) : (
+                <div style={{ fontSize: 11, color: "#445566" }}>Sin datos de Oura — ve a Comidas y toca Sync</div>
               )}
             </div>
 
