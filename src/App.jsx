@@ -463,10 +463,6 @@ export default function App() {
     var newDays = history.days.map(function(d) { return d.date === activeDate ? Object.assign({}, d, { meals: d.meals.filter(function(m) { return m.id !== id; }) }) : d; });
     update(newDays);
   }
-  function setGym(val) {
-    var newDays = history.days.map(function(d) { return d.date === activeDate ? Object.assign({}, d, { gym: val }) : d; });
-    update(newDays);
-  }
   function addItem() {
     if (!form.name.trim() || !form.cals) return;
     var item = { id: Date.now(), name: form.name, cals: parseFloat(form.cals) || 0, protein: parseFloat(form.prot) || 0, carbs: parseFloat(form.carbs) || 0, fat: parseFloat(form.fat) || 0, time: form.time, note: form.note || "Manual" };
