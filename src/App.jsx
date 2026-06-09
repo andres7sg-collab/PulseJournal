@@ -419,7 +419,13 @@ export default function App() {
           active_calories: data.activity ? data.activity.active_calories : null,
           total_calories: data.activity ? data.activity.total_calories : null,
           sleep_score: data.sleep ? data.sleep.score : null,
-          workouts: data.workouts || [],
+          workouts: (data.workouts || []).map(function(w) {
+            return Object.assign({}, w, {
+              activity: (w.activity || w.sport || "other").toLowerCase(),
+              calories: w.calories ? Math.round(w.calories) : null,
+              duration: w.duration ? Math.round(w.duration) : null
+            });
+          }),
           fetched_at: new Date().toISOString(),
         };
         var newDays = history.days.map(function(d2) { return d2.date === dateStr ? Object.assign({}, d2, { oura: ouraData }) : d2; });
@@ -501,9 +507,15 @@ export default function App() {
     setShowAdd(false);
   }
   function addWeight() {
-    if (!weightForm.date || !weightForm.kg) return;
-    var newEntry = { date: weightForm.date, kg: parseFloat(weightForm.kg), note: "Manual" };
-    var newW = weights.filter(function(w) { return w.date !== weightForm.date; }).concat([newEntry]);
+    if (!weightForm.kg) return;
+    var today = new Date();
+    var yy = today.getFullYear();
+    var mm = today.getMonth() + 1;
+    var dd = today.getDate();
+    var defaultDate = yy + "-" + (mm < 10 ? "0" + mm : mm) + "-" + (dd < 10 ? "0" + dd : dd);
+    var dateToUse = weightForm.date || defaultDate;
+    var newEntry = { date: dateToUse, kg: parseFloat(weightForm.kg), note: "Manual" };
+    var newW = weights.filter(function(w) { return w.date !== dateToUse; }).concat([newEntry]);
     newW.sort(function(a, b) { return a.date.localeCompare(b.date); });
     setWeights(newW);
     fetch("/api/db", {
@@ -636,12 +648,13 @@ export default function App() {
                             var hrs = mins ? Math.floor(mins / 60) : 0;
                             var rem = mins ? mins % 60 : 0;
                             var durStr = hrs > 0 ? hrs + "h " + rem + "min" : (rem + "min");
-                            var activity = w.activity || w.sport || "Entrenamiento";
-                            var actMap = { "strength_training": "Entrenamiento de fuerza", "running": "Carrera", "walking": "Caminar", "cycling": "Ciclismo", "swimming": "Natación", "yoga": "Yoga", "hiit": "HIIT", "elliptical": "Elíptica", "rowing": "Remo" };
-                            var actLabel = actMap[activity] || activity;
+                            var actMap = { "strength_training": "Entrenamiento de fuerza", "running": "Carrera", "walking": "Caminar", "cycling": "Ciclismo", "swimming": "Natación", "yoga": "Yoga", "hiit": "HIIT", "elliptical": "Elíptica", "rowing": "Remo", "weight_training": "Entrenamiento de fuerza", "functional_training": "Entrenamiento funcional", "sport": "Deporte", "other": "Entrenamiento" };
+                            var actKey = (w.activity || w.sport || "").toLowerCase();
+                            var actLabel = actMap[actKey] || (w.activity || w.sport || "Entrenamiento");
+                            var cal = w.calories ? Math.round(w.calories) : null;
                             return (
                               <div key={i} style={{ fontSize: 10, color: "#38bdf8" }}>
-                                💪 {actLabel}{mins ? " · " + durStr : ""}{w.calories ? " · " + w.calories + " cal" : ""}
+                                💪 {actLabel}{mins ? " · " + durStr : ""}{cal ? " · " + cal + " cal" : ""}
                               </div>
                             );
                           })}
@@ -761,12 +774,14 @@ export default function App() {
                     var hrs = mins ? Math.floor(mins / 60) : 0;
                     var rem = mins ? mins % 60 : 0;
                     var durStr = hrs > 0 ? hrs + "h " + rem + "min" : (rem + "min");
-                    var actMap = { "strength_training": "Entrenamiento de fuerza", "running": "Carrera", "walking": "Caminar", "cycling": "Ciclismo", "swimming": "Natación", "yoga": "Yoga", "hiit": "HIIT", "elliptical": "Elíptica", "rowing": "Remo" };
-                    var actLabel = actMap[w.activity || w.sport] || (w.activity || w.sport || "Entrenamiento");
+                    var actMap = { "strength_training": "Entrenamiento de fuerza", "running": "Carrera", "walking": "Caminar", "cycling": "Ciclismo", "swimming": "Natación", "yoga": "Yoga", "hiit": "HIIT", "elliptical": "Elíptica", "rowing": "Remo", "weight_training": "Entrenamiento de fuerza", "functional_training": "Entrenamiento funcional", "sport": "Deporte", "other": "Entrenamiento" };
+                    var actKey = (w.activity || w.sport || "").toLowerCase();
+                    var actLabel = actMap[actKey] || (w.activity || w.sport || "Entrenamiento");
+                    var cal = w.calories ? Math.round(w.calories) : null;
                     return (
                       <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #0e1520" }}>
                         <span style={{ fontSize: 11, color: "#c8dce8" }}>💪 {actLabel}{mins ? " · " + durStr : ""}</span>
-                        <span style={{ fontSize: 11, color: "#34d399", fontFamily: "'Syne',sans-serif", fontWeight: 700 }}>{w.calories ? w.calories + " cal" : ""}</span>
+                        <span style={{ fontSize: 11, color: "#34d399", fontFamily: "'Syne',sans-serif", fontWeight: 700 }}>{cal ? cal + " cal" : ""}</span>
                       </div>
                     );
                   })}
