@@ -243,42 +243,99 @@ function dayTotals(day) {
 
 function bmi(kg) { return (kg / ((HEIGHT_CM / 100) * (HEIGHT_CM / 100))).toFixed(1); }
 
+// ---------- Objetivos para el semáforo del calendario ----------
+const PROT_MIN = 130;      // g — objetivo mínimo diario (meta de junio)
+const STEPS_GOAL = 8000;   // pasos — meta diaria
+const BURN_GOOD = 400;     // kcal activas que cuentan como día de ejercicio
+const SCORE_C = { good: "#4ADE80", mid: "#F2B23E", bad: "#FB7185", none: "#39404d" };
+const SCORE_BG = { good: "rgba(74,222,128,.17)", mid: "rgba(242,178,62,.15)", bad: "rgba(251,113,133,.16)", none: "rgba(120,132,150,.07)" };
+
+function dayScores(d) {
+  if (!d) return { food: "none", ex: "none", hasData: false };
+  var tt = dayTotals(d);
+  var food = "none";
+  if (d.meals.length > 0) {
+    if (tt.balance > 300) food = "bad";
+    else if (tt.balance <= 0 && tt.protein >= PROT_MIN) food = "good";
+    else food = "mid";
+  }
+  var hasEx = (tt.steps !== null && tt.steps !== undefined && tt.steps > 0) || tt.burn > 0;
+  var ex = "none";
+  if (hasEx) {
+    var st = tt.steps || 0;
+    if (st >= STEPS_GOAL || tt.burn >= BURN_GOOD) ex = "good";
+    else if (st < 4000 && tt.burn < 150) ex = "bad";
+    else ex = "mid";
+  }
+  return { food: food, ex: ex, t: tt, hasData: food !== "none" || ex !== "none" };
+}
+
+function todayStr() {
+  var t = new Date();
+  var mm = t.getMonth() + 1;
+  var dd = t.getDate();
+  return t.getFullYear() + "-" + (mm < 10 ? "0" + mm : mm) + "-" + (dd < 10 ? "0" + dd : dd);
+}
+
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
-  *{box-sizing:border-box;margin:0;padding:0;}
-  body{background:#080b0f;}
-  ::-webkit-scrollbar{width:3px;}
-  ::-webkit-scrollbar-thumb{background:#1e2530;border-radius:2px;}
-  input,select{font-family:'JetBrains Mono',monospace;}
-  .inp{background:#0e1318;border:1px solid #1a2230;color:#d4dde8;padding:9px 12px;border-radius:6px;font-size:12px;outline:none;transition:border .2s;width:100%;}
-  .inp:focus{border-color:#38bdf8;}
-  .inp::placeholder{color:#445566;}
-  .btn{background:#38bdf8;color:#080b0f;border:none;padding:9px 18px;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;transition:all .2s;}
-  .btn:hover{background:#7dd3fc;}
-  .btn-g{background:none;border:1px solid #1a2230;color:#6688aa;padding:8px 14px;border-radius:6px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;transition:all .2s;}
-  .btn-g:hover,.btn-g.on{border-color:#38bdf8;color:#38bdf8;}
-  .btn-del{background:none;border:none;color:#445566;cursor:pointer;font-size:18px;line-height:1;padding:2px 5px;transition:color .2s;flex-shrink:0;}
-  .btn-del:hover{color:#f87171;}
-  .tab{background:none;border:none;cursor:pointer;padding:9px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;transition:all .2s;border-bottom:2px solid transparent;}
-  .tab.on{color:#38bdf8;border-bottom-color:#38bdf8;}
-  .tab:not(.on){color:#445566;}
-  .tab:hover:not(.on){color:#7799aa;}
-  .card{background:#0c1117;border:1px solid #131c26;border-radius:10px;padding:18px 20px;}
-  .mrow{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-bottom:1px solid #0e1520;transition:background .15s;}
-  .mrow:hover{background:rgba(56,189,248,.03);}
-  .badge{display:inline-block;padding:2px 7px;border-radius:3px;font-size:9px;letter-spacing:.07em;font-weight:500;}
-  .day-pill{border-radius:8px;padding:10px 12px;cursor:pointer;border:1px solid #131c26;transition:all .2s;background:#0c1117;flex-shrink:0;}
-  .day-pill:hover{border-color:#38bdf8;}
-  .day-pill.active{border-color:#38bdf8;background:#0e1a26;}
-  .bar{height:6px;border-radius:3px;background:#0e1520;overflow:hidden;margin-top:4px;}
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  :root{
+    --bg:#0B0D11; --surf:#13171F; --raised:#1A1F2A; --line:#222937; --line-soft:#1A202B;
+    --hi:#EEF2F7; --mid:#98A3B6; --low:#5B6675;
+    --acc:#2DD4BF; --acc-soft:rgba(45,212,191,.13);
+    --good:#4ADE80; --warn:#F2B23E; --bad:#FB7185;
+    --prot:#7AA7FF; --carb:#4ADE80; --fat:#F2B23E; --burn:#34D399; --sleep:#A78BFA;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{background:var(--bg);}
+  ::-webkit-scrollbar{width:3px;height:3px;}
+  ::-webkit-scrollbar-thumb{background:#222937;border-radius:2px;}
+  input,select,textarea{font-family:'Manrope',sans-serif;}
+  .num{font-family:'Sora',sans-serif;font-variant-numeric:tabular-nums;}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--low);}
+  .inp{background:var(--raised);border:1px solid var(--line);color:var(--hi);padding:10px 12px;border-radius:10px;font-size:13px;outline:none;transition:border .2s;width:100%;}
+  .inp:focus{border-color:var(--acc);}
+  .inp::placeholder{color:var(--low);}
+  .btn{background:var(--acc);color:#06231F;border:none;padding:11px 18px;border-radius:10px;cursor:pointer;font-family:'Manrope',sans-serif;font-size:13px;font-weight:700;transition:filter .2s;}
+  .btn:hover{filter:brightness(1.1);}
+  .btn:disabled{opacity:.55;}
+  .btn-g{background:var(--raised);border:1px solid var(--line);color:var(--mid);padding:9px 14px;border-radius:10px;cursor:pointer;font-family:'Manrope',sans-serif;font-size:12px;font-weight:600;transition:all .2s;}
+  .btn-g:hover,.btn-g.on{border-color:var(--acc);color:var(--acc);background:var(--acc-soft);}
+  .btn-del{background:none;border:none;color:var(--low);cursor:pointer;font-size:18px;line-height:1;padding:2px 6px;transition:color .2s;flex-shrink:0;}
+  .btn-del:hover{color:var(--bad);}
+  .card{background:var(--surf);border:1px solid var(--line-soft);border-radius:16px;padding:18px;}
+  .mrow{display:flex;align-items:flex-start;gap:10px;padding:13px 0;border-bottom:1px solid var(--line-soft);}
+  .mrow:last-child{border-bottom:none;}
+  .badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:600;font-family:'Manrope',sans-serif;}
+  .day-pill{border-radius:12px;padding:8px 6px;cursor:pointer;border:1px solid var(--line-soft);transition:all .2s;background:var(--surf);flex-shrink:0;width:54px;text-align:center;}
+  .day-pill.active{border-color:var(--acc);background:var(--acc-soft);}
+  .bar{height:5px;border-radius:3px;background:var(--raised);overflow:hidden;}
   .bar-fill{height:100%;border-radius:3px;transition:width .5s;}
   @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
   .fi{animation:fi .25s ease forwards;}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-  .saving{animation:pulse .9s infinite;font-size:9px;color:#38bdf8;margin-top:2px;}
-  .sync-btn{background:#0e1a26;border:1px solid #38bdf8;color:#38bdf8;border-radius:6px;padding:6px 12px;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;flex-shrink:0;margin-left:10px;}
+  @media (prefers-reduced-motion: reduce){.fi{animation:none;}.bar-fill{transition:none;}}
+  .sync-btn{background:var(--acc-soft);border:1px solid var(--acc);color:var(--acc);border-radius:10px;padding:7px 13px;cursor:pointer;font-family:'Manrope',sans-serif;font-size:12px;font-weight:600;flex-shrink:0;margin-left:10px;}
   .sync-btn:disabled{opacity:.5;}
+  .navbtn{flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 4px;color:var(--low);transition:color .2s;}
+  .navbtn.on{color:var(--acc);}
+  .navbtn span{font-family:'Manrope',sans-serif;font-size:9.5px;font-weight:600;letter-spacing:.02em;}
+  .cal-cell{position:relative;aspect-ratio:1;border-radius:10px;border:1px solid var(--line-soft);cursor:pointer;display:flex;align-items:flex-start;justify-content:flex-start;padding:5px;transition:transform .12s;}
+  .cal-cell:active{transform:scale(.94);}
+  .cal-cell.off{cursor:default;opacity:.35;}
+  .cal-cell.today{outline:2px solid var(--acc);outline-offset:-1px;}
+  .cal-cell.sel{border-color:var(--hi);}
+  .dotrow{position:absolute;bottom:5px;left:0;right:0;display:flex;justify-content:center;gap:4px;}
+  .sdot{width:6px;height:6px;border-radius:50%;}
 `;
+
+function Icon(props) {
+  var p = { fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" };
+  if (props.name === "hoy") return (<svg width="21" height="21" viewBox="0 0 24 24" {...p}><path d="M4 6h16M4 12h16M4 18h10"/></svg>);
+  if (props.name === "cal") return (<svg width="21" height="21" viewBox="0 0 24 24" {...p}><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v3.5M16 3v3.5"/></svg>);
+  if (props.name === "bal") return (<svg width="21" height="21" viewBox="0 0 24 24" {...p}><path d="M7 4v16M7 4l-3 4M7 4l3 4M17 20V4M17 20l-3-4M17 20l3-4"/></svg>);
+  if (props.name === "peso") return (<svg width="21" height="21" viewBox="0 0 24 24" {...p}><rect x="3.5" y="3.5" width="17" height="17" rx="4"/><path d="M8.5 9.5a4.5 4.5 0 0 1 7 0M12 12l2.2-2.6"/></svg>);
+  return (<svg width="21" height="21" viewBox="0 0 24 24" {...p}><path d="M4 19V11M9.5 19V5M15 19v-8M20.5 19V8"/></svg>);
+}
 
 export default function App() {
   const [history, setHistory] = useState(null);
@@ -298,6 +355,10 @@ export default function App() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiItems, setAiItems] = useState([]);
   const [aiError, setAiError] = useState(null);
+  const [calCursor, setCalCursor] = useState(function() {
+    var t = new Date();
+    return { y: t.getFullYear(), m: t.getMonth() };
+  });
 
   useEffect(function() {
     function initWithData(stored) {
@@ -315,12 +376,7 @@ export default function App() {
           changed = true;
         }
       });
-      // Auto-generate days from last seed to today
-      var today = new Date();
-      var yy = today.getFullYear();
-      var mm = today.getMonth() + 1;
-      var dd = today.getDate();
-      var todayStr = yy + "-" + (mm < 10 ? "0" + mm : mm) + "-" + (dd < 10 ? "0" + dd : dd);
+      var tStr = todayStr();
       var lastSeed = SEED_DAYS[SEED_DAYS.length - 1].date;
       var cursor = new Date(lastSeed);
       cursor.setDate(cursor.getDate() + 1);
@@ -330,7 +386,7 @@ export default function App() {
         var cmo = cursor.getMonth() + 1;
         var cdd = cursor.getDate();
         var curStr = cy + "-" + (cmo < 10 ? "0" + cmo : cmo) + "-" + (cdd < 10 ? "0" + cdd : cdd);
-        if (curStr > todayStr) break;
+        if (curStr > tStr) break;
         if (existingDates.indexOf(curStr) === -1) {
           var lbl = cursor.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
           stored.days.push({ date: curStr, label: lbl, gym: "", meals: [] });
@@ -469,21 +525,22 @@ export default function App() {
 
   if (!history || !weights) {
     return (
-      <div style={{ background: "#080b0f", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "#0B0D11", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <style>{css}</style>
-        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, color: "#445566" }}>Cargando...</span>
+        <span className="eyebrow">Cargando...</span>
       </div>
     );
   }
 
   var day = history.days.find(function(d) { return d.date === activeDate; }) || history.days[history.days.length - 1];
   var t = dayTotals(day);
-  var balColor = t.balance > 300 ? "#f87171" : t.balance < -300 ? "#34d399" : "#fbbf24";
+  var limit = TDEE_BASE + t.burn;
+  var balColor = t.balance > 300 ? "var(--bad)" : t.balance < -300 ? "var(--good)" : "var(--warn)";
   var protPct = Math.min(100, Math.round(t.protein / PROT_GOAL * 100));
-  var protColor = protPct >= 80 ? "#34d399" : protPct >= 50 ? "#fbbf24" : "#f87171";
+  var protColor = protPct >= 80 ? "var(--good)" : protPct >= 50 ? "var(--warn)" : "var(--bad)";
   var burnPct = Math.min(100, Math.round((t.burn / 800) * 100));
   var stepsPct = t.steps ? Math.min(100, Math.round((t.steps / 15000) * 100)) : 0;
-  var stepsColor = t.steps ? (t.steps >= 8000 ? "#34d399" : t.steps <= 3000 ? "#f87171" : "#fbbf24") : "#445566";
+  var stepsColor = t.steps ? (t.steps >= STEPS_GOAL ? "var(--good)" : t.steps <= 3000 ? "var(--bad)" : "var(--warn)") : "var(--low)";
   var lastWeight = weights[weights.length - 1];
   var firstWeight = weights[0] ? weights[0].kg : 82.15;
   var weightChange = weights.length > 1 ? (lastWeight.kg - firstWeight).toFixed(2) : null;
@@ -493,6 +550,10 @@ export default function App() {
   var avgCals = Math.round(totalCals / trend.length);
   var avgBalance = Math.round(totalBalance / trend.length);
   var canSync = dayAge(day.date) <= 30;
+  var tStr = todayStr();
+
+  var daysByDate = {};
+  history.days.forEach(function(d) { daysByDate[d.date] = d; });
 
   function removeItem(id) {
     var newDays = history.days.map(function(d) { return d.date === activeDate ? Object.assign({}, d, { meals: d.meals.filter(function(m) { return m.id !== id; }) }) : d; });
@@ -508,12 +569,7 @@ export default function App() {
   }
   function addWeight() {
     if (!weightForm.kg) return;
-    var today = new Date();
-    var yy = today.getFullYear();
-    var mm = today.getMonth() + 1;
-    var dd = today.getDate();
-    var defaultDate = yy + "-" + (mm < 10 ? "0" + mm : mm) + "-" + (dd < 10 ? "0" + dd : dd);
-    var dateToUse = weightForm.date || defaultDate;
+    var dateToUse = weightForm.date || todayStr();
     var newEntry = { date: dateToUse, kg: parseFloat(weightForm.kg), note: "Manual" };
     var newW = weights.filter(function(w) { return w.date !== dateToUse; }).concat([newEntry]);
     newW.sort(function(a, b) { return a.date.localeCompare(b.date); });
@@ -526,120 +582,145 @@ export default function App() {
     setWeightForm({ date: "", kg: "" });
     setShowAddWeight(false);
   }
+  function goToday() {
+    var dateStr = todayStr();
+    if (daysByDate[dateStr]) { setActiveDate(dateStr); return; }
+    var today = new Date();
+    var label = today.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
+    var newDay = { date: dateStr, label: label, gym: "", meals: [] };
+    var newDays = history.days.concat([newDay]);
+    newDays.sort(function(a, b) { return a.date.localeCompare(b.date); });
+    update(newDays);
+    setActiveDate(dateStr);
+  }
+
+  // ----- Anillo de calorías -----
+  var ringR = 56;
+  var ringCirc = 2 * Math.PI * ringR;
+  var ringPct = Math.min(1, t.cals / limit);
+  var ringOver = t.cals > limit;
+  var ringColor = ringOver ? "var(--bad)" : t.balance < -300 ? "var(--good)" : "var(--acc)";
+
+  // ----- Calendario -----
+  var MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  var WD = ["L", "M", "X", "J", "V", "S", "D"];
+  var calFirst = new Date(calCursor.y, calCursor.m, 1);
+  var calOffset = (calFirst.getDay() + 6) % 7;
+  var calDays = new Date(calCursor.y, calCursor.m + 1, 0).getDate();
+  var calCells = [];
+  var ci;
+  for (ci = 0; ci < calOffset; ci++) calCells.push(null);
+  for (ci = 1; ci <= calDays; ci++) calCells.push(ci);
+  var monthStats = { foodGood: 0, exGood: 0, tracked: 0, balSum: 0, protDays: 0 };
+  calCells.forEach(function(n) {
+    if (!n) return;
+    var ds = calCursor.y + "-" + (calCursor.m + 1 < 10 ? "0" + (calCursor.m + 1) : calCursor.m + 1) + "-" + (n < 10 ? "0" + n : n);
+    var sc = dayScores(daysByDate[ds]);
+    if (sc.hasData) {
+      monthStats.tracked++;
+      monthStats.balSum += sc.t.balance;
+      if (sc.food === "good") monthStats.foodGood++;
+      if (sc.ex === "good") monthStats.exGood++;
+      if (sc.t.protein >= PROT_MIN) monthStats.protDays++;
+    }
+  });
 
   return (
-    <div style={{ minHeight: "100vh", background: "#080b0f", fontFamily: "'JetBrains Mono',monospace", color: "#c8d8e8", paddingBottom: "calc(env(safe-area-inset-bottom) + 60px)" }}>
+    <div style={{ minHeight: "100vh", background: "var(--bg)", fontFamily: "'Manrope',sans-serif", color: "var(--hi)", paddingBottom: "calc(env(safe-area-inset-bottom) + 78px)" }}>
       <style>{css}</style>
 
-      <div style={{ background: "#060910", borderBottom: "1px solid #0e1520", paddingTop: "calc(env(safe-area-inset-top) + 18px)", paddingLeft: "20px", paddingRight: "20px", paddingBottom: "0" }}>
-        <div style={{ maxWidth: 500, margin: "0 auto" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
-            <div>
-              <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".18em", textTransform: "uppercase", marginBottom: 4 }}>PULSO JOURNAL</div>
-              <h1 style={{ fontFamily: "'Syne',sans-serif", fontSize: 20, fontWeight: 800, letterSpacing: "-.02em", color: "#e8f4ff" }}>{day.label || fmtDate(day.date)}</h1>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 28, fontWeight: 800, color: "#38bdf8", lineHeight: 1 }}>{Math.round(t.cals)}</div>
-              <div style={{ fontSize: 9, color: "#6688aa", marginTop: 2 }}>kcal ingeridas</div>
-              <button
-                onClick={function() {
-                  setSaving(true);
-                  fetch("/api/db", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ days: [day], weights: weights })
-                  })
-                  .then(function() { setSaving(false); })
-                  .catch(function() { setSaving(false); });
-                }}
-                style={{ marginTop: 6, background: "#0e1a26", border: "1px solid " + (saving ? "#34d399" : "#1a2a3a"), color: saving ? "#34d399" : "#6688aa", borderRadius: 5, padding: "4px 10px", cursor: "pointer", fontFamily: "'JetBrains Mono',monospace", fontSize: 9, letterSpacing: ".06em" }}>
-                {saving ? "✓ guardado" : "💾 guardar"}
-              </button>
-            </div>
+      <div style={{ position: "sticky", top: 0, zIndex: 20, background: "rgba(11,13,17,.92)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)", borderBottom: "1px solid var(--line-soft)", paddingTop: "calc(env(safe-area-inset-top) + 12px)", paddingBottom: 10 }}>
+        <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 18px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div className="eyebrow" style={{ color: "var(--acc)", marginBottom: 2 }}>Pulso Journal</div>
+            <div className="num" style={{ fontSize: 16, fontWeight: 700, textTransform: "capitalize" }}>{day.label || fmtDate(day.date)}</div>
           </div>
-
-          <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 5 }}>
-            <div style={{ padding: "7px 12px", background: "#0a0f14", borderRadius: 7, border: "1px solid #0e1a20" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Proteína</span>
-                <span style={{ fontSize: 10, color: protColor }}>{Math.round(t.protein)}g / {PROT_GOAL}g</span>
-              </div>
-              <div className="bar"><div className="bar-fill" style={{ width: protPct + "%", background: protColor }} /></div>
-            </div>
-            <div style={{ padding: "7px 12px", background: "#0a0f14", borderRadius: 7, border: "1px solid #0e1a20" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Quemado</span>
-                <span style={{ fontSize: 10, color: t.burn > 0 ? "#34d399" : "#445566" }}>{t.burn > 0 ? t.burn + " kcal" : "sin actividad"}</span>
-              </div>
-              <div className="bar"><div className="bar-fill" style={{ width: burnPct + "%", background: "#34d399" }} /></div>
-            </div>
-            <div style={{ padding: "7px 12px", background: "#0a0f14", borderRadius: 7, border: "1px solid #0e1a20" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Pasos</span>
-                <span style={{ fontSize: 10, color: stepsColor }}>{t.steps ? t.steps.toLocaleString("es-ES") : "—"}</span>
-              </div>
-              <div className="bar"><div className="bar-fill" style={{ width: stepsPct + "%", background: stepsColor }} /></div>
-            </div>
-          </div>
-
-          <div style={{ display: "flex" }}>
-            {["log", "balance", "peso", "historial"].map(function(k) {
-              return (
-                <button key={k} className={"tab" + (tab === k ? " on" : "")} onClick={function() { setTab(k); }}>
-                  {k === "log" ? "Comidas" : k === "balance" ? "Balance" : k === "peso" ? "Peso" : "Historial"}
-                </button>
-              );
-            })}
-          </div>
+          <button
+            onClick={function() {
+              setSaving(true);
+              fetch("/api/db", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ days: [day], weights: weights })
+              })
+              .then(function() { setSaving(false); })
+              .catch(function() { setSaving(false); });
+            }}
+            className="btn-g" style={{ borderColor: saving ? "var(--good)" : "var(--line)", color: saving ? "var(--good)" : "var(--mid)", fontSize: 12, padding: "8px 14px" }}>
+            {saving ? "✓ Guardado" : "Guardar"}
+          </button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 500, margin: "0 auto", padding: "20px 20px" }}>
-
-        <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 6, marginBottom: 20, scrollbarWidth: "none" }}>
-          {history.days.slice().reverse().map(function(d) {
-            var tt = dayTotals(d);
-            return (
-              <div key={d.date} className={"day-pill" + (d.date === activeDate ? " active" : "")} onClick={function() { setActiveDate(d.date); }} style={{ minWidth: 86 }}>
-                <div style={{ fontSize: 8, color: "#6688aa", marginBottom: 3, whiteSpace: "nowrap" }}>{d.label || fmtDate(d.date)}</div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 15, color: d.date === activeDate ? "#38bdf8" : "#2a4a60" }}>{Math.round(tt.cals)}</div>
-                <div style={{ fontSize: 7, color: "#445566", marginTop: 1 }}>kcal</div>
-              </div>
-            );
-          })}
-          <div className="day-pill" onClick={function() {
-            var today = new Date();
-            var yy = today.getFullYear();
-            var mm = today.getMonth() + 1;
-            var dd = today.getDate();
-            var dateStr = yy + "-" + (mm < 10 ? "0" + mm : mm) + "-" + (dd < 10 ? "0" + dd : dd);
-            var label = today.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" });
-            if (history.days.find(function(d) { return d.date === dateStr; })) {
-              setActiveDate(dateStr);
-              return;
-            }
-            var newDay = { date: dateStr, label: label, gym: "", meals: [] };
-            var newDays = history.days.concat([newDay]);
-            newDays.sort(function(a, b) { return a.date.localeCompare(b.date); });
-            update(newDays);
-            setActiveDate(dateStr);
-          }} style={{ minWidth: 60, display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #1a2230" }}>
-            <div style={{ fontSize: 20, color: "#2a4a60", lineHeight: 1 }}>+</div>
-          </div>
-        </div>
+      <div style={{ maxWidth: 480, margin: "0 auto", padding: "16px 18px 0" }}>
 
         {tab === "log" && (
-          <div className="fi">
-            <div className="card" style={{ marginBottom: 16 }}>
+          <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+            <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
+              <div className="day-pill" onClick={goToday} style={{ display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed var(--line)" }}>
+                <div style={{ fontSize: 18, color: "var(--low)", lineHeight: 1 }}>+</div>
+              </div>
+              {history.days.slice().reverse().map(function(d) {
+                var sc = dayScores(d);
+                var dnum = d.date.slice(8);
+                return (
+                  <div key={d.date} className={"day-pill" + (d.date === activeDate ? " active" : "")} onClick={function() { setActiveDate(d.date); }}>
+                    <div style={{ fontSize: 9, color: "var(--low)", textTransform: "uppercase" }}>{(d.label || fmtDate(d.date)).slice(0, 3)}</div>
+                    <div className="num" style={{ fontWeight: 700, fontSize: 16, color: d.date === activeDate ? "var(--acc)" : "var(--hi)", margin: "2px 0" }}>{parseInt(dnum, 10)}</div>
+                    <div style={{ display: "flex", justifyContent: "center", gap: 3 }}>
+                      <span className="sdot" style={{ background: SCORE_C[sc.food] }} />
+                      <span className="sdot" style={{ background: SCORE_C[sc.ex] }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="card" style={{ display: "flex", alignItems: "center", gap: 18 }}>
+              <div style={{ position: "relative", width: 132, height: 132, flexShrink: 0 }}>
+                <svg width="132" height="132" viewBox="0 0 132 132">
+                  <circle cx="66" cy="66" r={ringR} fill="none" stroke="var(--raised)" strokeWidth="11" />
+                  <circle cx="66" cy="66" r={ringR} fill="none" stroke={ringColor} strokeWidth="11" strokeLinecap="round"
+                    strokeDasharray={ringCirc} strokeDashoffset={ringCirc * (1 - ringPct)}
+                    transform="rotate(-90 66 66)" style={{ transition: "stroke-dashoffset .6s ease" }} />
+                </svg>
+                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                  <div className="num" style={{ fontSize: 27, fontWeight: 800, lineHeight: 1 }}>{Math.round(t.cals)}</div>
+                  <div style={{ fontSize: 9.5, color: "var(--low)", marginTop: 3 }}>de {limit} kcal</div>
+                </div>
+              </div>
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+                <div>
+                  <div className="eyebrow">Balance neto</div>
+                  <div className="num" style={{ fontSize: 22, fontWeight: 800, color: balColor }}>{t.balance > 0 ? "+" : ""}{Math.round(t.balance)}</div>
+                </div>
+                {[["Proteína", Math.round(t.protein) + "g / " + PROT_GOAL + "g", protPct, protColor],
+                  ["Quemado", t.burn > 0 ? t.burn + " kcal" : "—", burnPct, "var(--burn)"],
+                  ["Pasos", t.steps ? t.steps.toLocaleString("es-ES") : "—", stepsPct, stepsColor]].map(function(row) {
+                  return (
+                    <div key={row[0]}>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                        <span style={{ fontSize: 10.5, color: "var(--mid)" }}>{row[0]}</span>
+                        <span className="num" style={{ fontSize: 10.5, color: row[3], fontWeight: 600 }}>{row[1]}</span>
+                      </div>
+                      <div className="bar"><div className="bar-fill" style={{ width: row[2] + "%", background: row[3] }} /></div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="card">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 6 }}>Oura Ring</div>
+                  <div className="eyebrow" style={{ marginBottom: 8 }}>Oura Ring</div>
                   {day.oura ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
                       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                        {day.oura.steps && <span style={{ fontSize: 10, color: "#34d399" }}>👟 {day.oura.steps.toLocaleString("es-ES")} pasos</span>}
-                        {day.oura.active_calories && <span style={{ fontSize: 10, color: "#34d399" }}>🔥 {day.oura.active_calories} kcal</span>}
-                        {day.oura.sleep_score && <span style={{ fontSize: 10, color: "#a78bfa" }}>😴 {day.oura.sleep_score} sueño</span>}
+                        {day.oura.steps && <span style={{ fontSize: 11.5, color: "var(--burn)" }}>👟 {day.oura.steps.toLocaleString("es-ES")} pasos</span>}
+                        {day.oura.active_calories && <span style={{ fontSize: 11.5, color: "var(--burn)" }}>🔥 {day.oura.active_calories} kcal</span>}
+                        {day.oura.sleep_score && <span style={{ fontSize: 11.5, color: "var(--sleep)" }}>😴 {day.oura.sleep_score} sueño</span>}
                       </div>
                       {day.oura.workouts && day.oura.workouts.length > 0 && (
                         <div style={{ display: "flex", flexDirection: "column", gap: 3, marginTop: 2 }}>
@@ -653,7 +734,7 @@ export default function App() {
                             var actLabel = actMap[actKey] || (w.activity || w.sport || "Entrenamiento");
                             var cal = w.calories ? Math.round(w.calories) : null;
                             return (
-                              <div key={i} style={{ fontSize: 10, color: "#38bdf8" }}>
+                              <div key={i} style={{ fontSize: 11, color: "var(--acc)" }}>
                                 💪 {actLabel}{mins ? " · " + durStr : ""}{cal ? " · " + cal + " cal" : ""}
                               </div>
                             );
@@ -662,9 +743,9 @@ export default function App() {
                       )}
                     </div>
                   ) : (
-                    <div style={{ fontSize: 10, color: "#6688aa" }}>Sin datos — toca Sync para obtener actividad, sueño y entrenamientos</div>
+                    <div style={{ fontSize: 11.5, color: "var(--low)" }}>Sin datos — toca Sync para traer actividad, sueño y entrenamientos</div>
                   )}
-                  {ouraError && <div style={{ fontSize: 9, color: "#f87171", marginTop: 3 }}>{ouraError}</div>}
+                  {ouraError && <div style={{ fontSize: 10, color: "var(--bad)", marginTop: 4 }}>{ouraError}</div>}
                 </div>
                 {canSync && (
                   <button className="sync-btn" onClick={function() { fetchOura(day.date); }} disabled={ouraLoading}>
@@ -674,8 +755,8 @@ export default function App() {
               </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <span style={{ fontSize: 10, color: "#6688aa", letterSpacing: ".08em", textTransform: "uppercase" }}>{day.meals.length} alimentos</span>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span className="eyebrow">{day.meals.length} alimentos</span>
               <div style={{ display: "flex", gap: 8 }}>
                 <button className="btn-g" onClick={function() { setShowAI(!showAI); setShowAdd(false); }}>{showAI ? "✕" : "✨ IA"}</button>
                 <button className="btn-g" onClick={function() { setShowAdd(!showAdd); setShowAI(false); }}>{showAdd ? "✕" : "+ Manual"}</button>
@@ -683,30 +764,30 @@ export default function App() {
             </div>
 
             {showAI && (
-              <div className="fi card" style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 9 }}>
-                <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Describe lo que comiste</div>
+              <div className="fi card" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div className="eyebrow">Describe lo que comiste</div>
                 <textarea
-                  style={{ background: "#0e1318", border: "1px solid #1a2230", color: "#d4dde8", padding: "9px 12px", borderRadius: 6, fontSize: 12, outline: "none", width: "100%", minHeight: 80, resize: "vertical", fontFamily: "'JetBrains Mono',monospace", boxSizing: "border-box" }}
+                  style={{ background: "var(--raised)", border: "1px solid var(--line)", color: "var(--hi)", padding: "10px 12px", borderRadius: 10, fontSize: 13, outline: "none", width: "100%", minHeight: 80, resize: "vertical", boxSizing: "border-box" }}
                   placeholder="Ej: café solo, bocata de jamón serrano, manzana y un yogurt griego..."
                   value={aiText}
                   onChange={function(e) { setAiText(e.target.value); }}
                 />
-                {aiError && <div style={{ fontSize: 9, color: "#f87171" }}>{aiError}</div>}
+                {aiError && <div style={{ fontSize: 10, color: "var(--bad)" }}>{aiError}</div>}
                 {aiItems.length > 0 && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Estimación — confirma para guardar:</div>
+                    <div className="eyebrow">Estimación — confirma para guardar:</div>
                     {aiItems.map(function(item, idx) {
                       return (
-                        <div key={idx} style={{ background: "#080b0f", borderRadius: 7, padding: "10px 12px", border: "1px solid #1a2230" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between" }}>
-                            <span style={{ fontSize: 12, color: "#c8dce8", fontFamily: "'Syne',sans-serif", fontWeight: 600 }}>{item.name}</span>
-                            <span style={{ fontSize: 14, color: "#38bdf8", fontFamily: "'Syne',sans-serif", fontWeight: 800 }}>{item.cals} kcal</span>
+                        <div key={idx} style={{ background: "var(--raised)", borderRadius: 10, padding: "10px 12px", border: "1px solid var(--line)" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>{item.name}</span>
+                            <span className="num" style={{ fontSize: 14, color: "var(--acc)", fontWeight: 800, flexShrink: 0 }}>{item.cals} kcal</span>
                           </div>
-                          <div style={{ display: "flex", gap: 5, marginTop: 5 }}>
-                            <span className="badge" style={{ background: "#0e1a30", color: "#60a5fa" }}>P {item.protein}g</span>
-                            <span className="badge" style={{ background: "#0a1a20", color: "#34d399" }}>C {item.carbs}g</span>
-                            <span className="badge" style={{ background: "#1a1510", color: "#fbbf24" }}>G {item.fat}g</span>
-                            <span style={{ fontSize: 9, color: "#6688aa", marginLeft: 4, alignSelf: "center" }}>{item.time}</span>
+                          <div style={{ display: "flex", gap: 5, marginTop: 6, alignItems: "center" }}>
+                            <span className="badge" style={{ background: "rgba(122,167,255,.13)", color: "var(--prot)" }}>P {item.protein}g</span>
+                            <span className="badge" style={{ background: "rgba(74,222,128,.12)", color: "var(--carb)" }}>C {item.carbs}g</span>
+                            <span className="badge" style={{ background: "rgba(242,178,62,.12)", color: "var(--fat)" }}>G {item.fat}g</span>
+                            <span style={{ fontSize: 10, color: "var(--low)", marginLeft: 4 }}>{item.time}</span>
                           </div>
                         </div>
                       );
@@ -715,7 +796,7 @@ export default function App() {
                   </div>
                 )}
                 {aiItems.length === 0 && (
-                  <button className="btn" disabled={aiLoading || !aiText.trim()} onClick={estimateAI} style={{ opacity: aiLoading ? 0.6 : 1 }}>
+                  <button className="btn" disabled={aiLoading || !aiText.trim()} onClick={estimateAI}>
                     {aiLoading ? "Estimando..." : "Estimar con IA"}
                   </button>
                 )}
@@ -723,7 +804,7 @@ export default function App() {
             )}
 
             {showAdd && (
-              <div className="fi card" style={{ marginBottom: 18, display: "flex", flexDirection: "column", gap: 9 }}>
+              <div className="fi card" style={{ display: "flex", flexDirection: "column", gap: 9 }}>
                 <input className="inp" placeholder="Alimento..." value={form.name} onChange={function(e) { setForm(function(f) { return Object.assign({}, f, { name: e.target.value }); }); }} />
                 <div style={{ display: "flex", gap: 8 }}>
                   <input className="inp" placeholder="kcal *" type="number" value={form.cals} onChange={function(e) { setForm(function(f) { return Object.assign({}, f, { cals: e.target.value }); }); }} />
@@ -739,34 +820,125 @@ export default function App() {
               </div>
             )}
 
-            {day.meals.map(function(meal) {
-              return (
-                <div key={meal.id} className="mrow">
-                  <button className="btn-del" onClick={function() { removeItem(meal.id); }}>×</button>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 13, fontWeight: 600, color: "#c8dce8", lineHeight: 1.3 }}>{meal.name}</div>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 15, fontWeight: 800, color: "#38bdf8", flexShrink: 0 }}>{Math.round(meal.cals)}</div>
-                    </div>
-                    <div style={{ fontSize: 9, color: "#6688aa", marginTop: 4 }}>{meal.time} · {meal.note}</div>
-                    {(meal.protein > 0 || meal.carbs > 0 || meal.fat > 0) && (
-                      <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
-                        <span className="badge" style={{ background: "#0e1a30", color: "#60a5fa" }}>P {Math.round(meal.protein)}g</span>
-                        <span className="badge" style={{ background: "#0a1a20", color: "#34d399" }}>C {Math.round(meal.carbs)}g</span>
-                        <span className="badge" style={{ background: "#1a1510", color: "#fbbf24" }}>G {Math.round(meal.fat)}g</span>
+            <div className="card" style={{ padding: "4px 18px" }}>
+              {day.meals.length === 0 && (
+                <div style={{ padding: "22px 0", textAlign: "center", fontSize: 12, color: "var(--low)" }}>Nada registrado aún — usa ✨ IA para describir lo que comiste</div>
+              )}
+              {day.meals.map(function(meal) {
+                return (
+                  <div key={meal.id} className="mrow">
+                    <button className="btn-del" onClick={function() { removeItem(meal.id); }}>×</button>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ fontSize: 13.5, fontWeight: 600, lineHeight: 1.3 }}>{meal.name}</div>
+                        <div className="num" style={{ fontSize: 15, fontWeight: 800, color: "var(--acc)", flexShrink: 0 }}>{Math.round(meal.cals)}</div>
                       </div>
-                    )}
+                      <div style={{ fontSize: 10, color: "var(--low)", marginTop: 4 }}>{meal.time} · {meal.note}</div>
+                      {(meal.protein > 0 || meal.carbs > 0 || meal.fat > 0) && (
+                        <div style={{ display: "flex", gap: 5, marginTop: 6 }}>
+                          <span className="badge" style={{ background: "rgba(122,167,255,.13)", color: "var(--prot)" }}>P {Math.round(meal.protein)}g</span>
+                          <span className="badge" style={{ background: "rgba(74,222,128,.12)", color: "var(--carb)" }}>C {Math.round(meal.carbs)}g</span>
+                          <span className="badge" style={{ background: "rgba(242,178,62,.12)", color: "var(--fat)" }}>G {Math.round(meal.fat)}g</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {tab === "calendario" && (
+          <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div className="card">
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <button className="btn-g" style={{ padding: "6px 13px" }} onClick={function() {
+                  setCalCursor(function(c) { var m = c.m - 1; return m < 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m: m }; });
+                }}>‹</button>
+                <div className="num" style={{ fontSize: 16, fontWeight: 700 }}>{MONTHS_ES[calCursor.m]} {calCursor.y}</div>
+                <button className="btn-g" style={{ padding: "6px 13px" }} onClick={function() {
+                  setCalCursor(function(c) { var m = c.m + 1; return m > 11 ? { y: c.y + 1, m: 0 } : { y: c.y, m: m }; });
+                }}>›</button>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 5, marginBottom: 6 }}>
+                {WD.map(function(w, i) {
+                  return <div key={i} style={{ textAlign: "center", fontSize: 9.5, fontWeight: 700, color: "var(--low)" }}>{w}</div>;
+                })}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 5 }}>
+                {calCells.map(function(n, i) {
+                  if (!n) return <div key={"e" + i} />;
+                  var ds = calCursor.y + "-" + (calCursor.m + 1 < 10 ? "0" + (calCursor.m + 1) : calCursor.m + 1) + "-" + (n < 10 ? "0" + n : n);
+                  var d = daysByDate[ds];
+                  var sc = dayScores(d);
+                  var clickable = !!d;
+                  var bgStyle = sc.hasData
+                    ? "linear-gradient(135deg, " + SCORE_BG[sc.food] + " 0%, " + SCORE_BG[sc.food] + " 50%, " + SCORE_BG[sc.ex] + " 50%, " + SCORE_BG[sc.ex] + " 100%)"
+                    : "var(--surf)";
+                  return (
+                    <div key={ds}
+                      className={"cal-cell" + (!clickable ? " off" : "") + (ds === tStr ? " today" : "") + (ds === activeDate ? " sel" : "")}
+                      style={{ background: bgStyle }}
+                      onClick={function() { if (clickable) { setActiveDate(ds); setTab("log"); } }}>
+                      <span className="num" style={{ fontSize: 10.5, fontWeight: 600, color: sc.hasData ? "var(--hi)" : "var(--low)" }}>{n}</span>
+                      {sc.hasData && (
+                        <div className="dotrow">
+                          <span className="sdot" style={{ background: SCORE_C[sc.food] }} />
+                          <span className="sdot" style={{ background: SCORE_C[sc.ex] }} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid var(--line-soft)", display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className="sdot" style={{ background: "var(--hi)", opacity: .9, borderRadius: 2, width: 8, height: 8, clipPath: "polygon(0 0, 100% 0, 0 100%)" }} />
+                  <span style={{ fontSize: 10.5, color: "var(--mid)" }}>Mitad superior y punto izquierdo: <b style={{ color: "var(--hi)" }}>alimentación</b> · mitad inferior y punto derecho: <b style={{ color: "var(--hi)" }}>ejercicio</b></span>
                 </div>
-              );
-            })}
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  {[["var(--good)", "Bien"], ["var(--warn)", "Regular"], ["var(--bad)", "Mal"], ["#39404d", "Sin datos"]].map(function(l) {
+                    return (
+                      <span key={l[1]} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 10.5, color: "var(--mid)" }}>
+                        <span className="sdot" style={{ background: l[0] }} />{l[1]}
+                      </span>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: 9.5, color: "var(--low)", lineHeight: 1.6 }}>
+                  Alimentación: <span style={{ color: "var(--good)" }}>bien</span> = balance ≤ 0 y proteína ≥ {PROT_MIN}g · <span style={{ color: "var(--bad)" }}>mal</span> = superávit &gt; 300 kcal<br />
+                  Ejercicio: <span style={{ color: "var(--good)" }}>bien</span> = ≥ {STEPS_GOAL.toLocaleString("es-ES")} pasos o ≥ {BURN_GOOD} kcal activas · <span style={{ color: "var(--bad)" }}>mal</span> = &lt; 4.000 pasos sin actividad
+                </div>
+              </div>
+            </div>
+
+            <div className="card">
+              <div className="eyebrow" style={{ marginBottom: 12 }}>Resumen de {MONTHS_ES[calCursor.m]}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
+                {[["Días registrados", monthStats.tracked + "", "var(--hi)"],
+                  ["Alimentación bien", monthStats.foodGood + " días", "var(--good)"],
+                  ["Ejercicio bien", monthStats.exGood + " días", "var(--good)"],
+                  ["Proteína ≥ " + PROT_MIN + "g", monthStats.protDays + " días", "var(--prot)"],
+                  ["Balance medio", monthStats.tracked > 0 ? (Math.round(monthStats.balSum / monthStats.tracked) > 0 ? "+" : "") + Math.round(monthStats.balSum / monthStats.tracked) + " kcal" : "—", monthStats.tracked > 0 && monthStats.balSum / monthStats.tracked < 0 ? "var(--good)" : "var(--bad)"]].map(function(s) {
+                  return (
+                    <div key={s[0]} style={{ background: "var(--raised)", borderRadius: 12, padding: "11px 13px" }}>
+                      <div style={{ fontSize: 10, color: "var(--mid)", marginBottom: 4 }}>{s[0]}</div>
+                      <div className="num" style={{ fontWeight: 700, fontSize: 16, color: s[2] }}>{s[1]}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
 
         {tab === "balance" && (
           <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="card">
-              <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 12 }}>Actividad del día</div>
+              <div className="eyebrow" style={{ marginBottom: 12 }}>Actividad del día</div>
               {day.oura ? (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {day.oura.workouts && day.oura.workouts.length > 0 && day.oura.workouts.map(function(w, i) {
@@ -779,66 +951,64 @@ export default function App() {
                     var actLabel = actMap[actKey] || (w.activity || w.sport || "Entrenamiento");
                     var cal = w.calories ? Math.round(w.calories) : null;
                     return (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #0e1520" }}>
-                        <span style={{ fontSize: 11, color: "#c8dce8" }}>💪 {actLabel}{mins ? " · " + durStr : ""}</span>
-                        <span style={{ fontSize: 11, color: "#34d399", fontFamily: "'Syne',sans-serif", fontWeight: 700 }}>{cal ? cal + " cal" : ""}</span>
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--line-soft)" }}>
+                        <span style={{ fontSize: 12 }}>💪 {actLabel}{mins ? " · " + durStr : ""}</span>
+                        <span className="num" style={{ fontSize: 12, color: "var(--burn)", fontWeight: 700 }}>{cal ? cal + " cal" : ""}</span>
                       </div>
                     );
                   })}
                   <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
-                    <span style={{ fontSize: 11, color: "#6688aa" }}>Total quemado</span>
-                    <span style={{ fontSize: 14, color: "#34d399", fontFamily: "'Syne',sans-serif", fontWeight: 700 }}>-{t.burn} kcal</span>
+                    <span style={{ fontSize: 12, color: "var(--mid)" }}>Total quemado</span>
+                    <span className="num" style={{ fontSize: 15, color: "var(--burn)", fontWeight: 700 }}>-{t.burn} kcal</span>
                   </div>
                 </div>
               ) : (
-                <div style={{ fontSize: 11, color: "#445566" }}>Sin datos de Oura — ve a Comidas y toca Sync</div>
+                <div style={{ fontSize: 11.5, color: "var(--low)" }}>Sin datos de Oura — ve a Hoy y toca Sync</div>
               )}
             </div>
 
             <div className="card">
-              <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Ecuación</div>
-              {[["Ingerido", Math.round(t.cals), "#38bdf8", ""], ["Actividad (quemado)", t.burn, "#34d399", "-"], ["TDEE base", TDEE_BASE, "#445566", "-"]].map(function(row, i) {
+              <div className="eyebrow" style={{ marginBottom: 14 }}>Ecuación</div>
+              {[["Ingerido", Math.round(t.cals), "var(--acc)", ""], ["Actividad (quemado)", t.burn, "var(--burn)", "-"], ["TDEE base", TDEE_BASE, "var(--low)", "-"]].map(function(row, i) {
                 return (
-                  <div key={row[0]} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: i < 2 ? "1px solid #0e1520" : "none" }}>
-                    <span style={{ fontSize: 11, color: "#6688aa" }}>{row[0]}</span>
-                    <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, color: row[2] }}>{row[3]}{row[1]} kcal</span>
+                  <div key={row[0]} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: i < 2 ? "1px solid var(--line-soft)" : "none" }}>
+                    <span style={{ fontSize: 12, color: "var(--mid)" }}>{row[0]}</span>
+                    <span className="num" style={{ fontWeight: 700, fontSize: 14, color: row[2] }}>{row[3]}{row[1]} kcal</span>
                   </div>
                 );
               })}
-              <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 8, background: "#080b0f", border: "1px solid " + balColor + "33", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 12, background: "var(--raised)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".1em", textTransform: "uppercase" }}>Balance neto</div>
-                  <div style={{ fontSize: 10, color: balColor, marginTop: 3 }}>{t.balance > 300 ? "Superávit calórico" : t.balance < -300 ? "Déficit calórico" : "Cerca del mantenimiento"}</div>
+                  <div className="eyebrow">Balance neto</div>
+                  <div style={{ fontSize: 10.5, color: balColor, marginTop: 3 }}>{t.balance > 300 ? "Superávit calórico" : t.balance < -300 ? "Déficit calórico" : "Cerca del mantenimiento"}</div>
                 </div>
-                <div style={{ fontFamily: "'Syne',sans-serif", fontSize: 30, fontWeight: 800, color: balColor }}>{t.balance > 0 ? "+" : ""}{Math.round(t.balance)}</div>
+                <div className="num" style={{ fontSize: 30, fontWeight: 800, color: balColor }}>{t.balance > 0 ? "+" : ""}{Math.round(t.balance)}</div>
               </div>
             </div>
 
             <div className="card">
-              <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Macros vs objetivos</div>
-              {[["Proteína", Math.round(t.protein), 145, "#60a5fa"], ["Carbohidratos", Math.round(t.carbs), 250, "#34d399"], ["Grasas", Math.round(t.fat), 70, "#fbbf24"]].map(function(m) {
+              <div className="eyebrow" style={{ marginBottom: 14 }}>Macros vs objetivos</div>
+              {[["Proteína", Math.round(t.protein), 145, "var(--prot)"], ["Carbohidratos", Math.round(t.carbs), 250, "var(--carb)"], ["Grasas", Math.round(t.fat), 70, "var(--fat)"]].map(function(m) {
                 return (
                   <div key={m[0]} style={{ marginBottom: 13 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                      <span style={{ fontSize: 11, color: "#7799aa" }}>{m[0]}</span>
-                      <span style={{ fontSize: 11, color: m[3] }}>{m[1]}g / {m[2]}g</span>
+                      <span style={{ fontSize: 12, color: "var(--mid)" }}>{m[0]}</span>
+                      <span className="num" style={{ fontSize: 12, color: m[3] }}>{m[1]}g / {m[2]}g</span>
                     </div>
-                    <div style={{ background: "#0e1520", borderRadius: 3, height: 5, overflow: "hidden" }}>
-                      <div style={{ width: Math.min(100, m[1] / m[2] * 100) + "%", background: m[3], height: "100%", borderRadius: 3, transition: "width .5s" }} />
-                    </div>
+                    <div className="bar"><div className="bar-fill" style={{ width: Math.min(100, m[1] / m[2] * 100) + "%", background: m[3] }} /></div>
                   </div>
                 );
               })}
             </div>
 
-            <div className="card" style={{ background: "#0a0f1a", borderColor: "#131c30" }}>
-              <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Resumen total registrado</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {[["Días", trend.length + "", "#38bdf8"], ["Balance total", (totalBalance > 0 ? "+" : "") + Math.round(totalBalance) + " kcal", "#34d399"], ["Prom. diario", avgCals + " kcal", "#38bdf8"], ["Prom. balance", (avgBalance > 0 ? "+" : "") + avgBalance + " kcal", avgBalance < 0 ? "#34d399" : "#f87171"]].map(function(s) {
+            <div className="card">
+              <div className="eyebrow" style={{ marginBottom: 14 }}>Resumen total registrado</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
+                {[["Días", trend.length + "", "var(--acc)"], ["Balance total", (totalBalance > 0 ? "+" : "") + Math.round(totalBalance) + " kcal", "var(--burn)"], ["Prom. diario", avgCals + " kcal", "var(--acc)"], ["Prom. balance", (avgBalance > 0 ? "+" : "") + avgBalance + " kcal", avgBalance < 0 ? "var(--good)" : "var(--bad)"]].map(function(s) {
                   return (
-                    <div key={s[0]} style={{ background: "#080b0f", borderRadius: 7, padding: "10px 12px" }}>
-                      <div style={{ fontSize: 9, color: "#6688aa", marginBottom: 3 }}>{s[0]}</div>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 15, color: s[2] }}>{s[1]}</div>
+                    <div key={s[0]} style={{ background: "var(--raised)", borderRadius: 12, padding: "11px 13px" }}>
+                      <div style={{ fontSize: 10, color: "var(--mid)", marginBottom: 4 }}>{s[0]}</div>
+                      <div className="num" style={{ fontWeight: 700, fontSize: 15, color: s[2] }}>{s[1]}</div>
                     </div>
                   );
                 })}
@@ -850,28 +1020,28 @@ export default function App() {
         {tab === "peso" && (
           <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div className="card">
-              <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 14 }}>Perfil</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                {[["Altura", HEIGHT_CM + " cm", "#38bdf8"], ["Peso actual", lastWeight ? lastWeight.kg + " kg" : "—", "#a78bfa"], ["IMC", lastWeight ? bmi(lastWeight.kg) : "—", "#34d399"]].map(function(s) {
+              <div className="eyebrow" style={{ marginBottom: 14 }}>Perfil</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 9 }}>
+                {[["Altura", HEIGHT_CM + " cm", "var(--acc)"], ["Peso actual", lastWeight ? lastWeight.kg + " kg" : "—", "var(--sleep)"], ["IMC", lastWeight ? bmi(lastWeight.kg) : "—", "var(--good)"]].map(function(s) {
                   return (
-                    <div key={s[0]} style={{ background: "#0a0f14", borderRadius: 8, padding: "12px 10px", textAlign: "center" }}>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, color: s[2] }}>{s[1]}</div>
-                      <div style={{ fontSize: 8, color: "#6688aa", marginTop: 3 }}>{s[0]}</div>
+                    <div key={s[0]} style={{ background: "var(--raised)", borderRadius: 12, padding: "12px 10px", textAlign: "center" }}>
+                      <div className="num" style={{ fontWeight: 800, fontSize: 17, color: s[2] }}>{s[1]}</div>
+                      <div style={{ fontSize: 9.5, color: "var(--mid)", marginTop: 3 }}>{s[0]}</div>
                     </div>
                   );
                 })}
               </div>
               {weightChange !== null && weights.length > 1 && (
-                <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 7, background: "#080b0f", border: "1px solid " + (parseFloat(weightChange) <= 0 ? "#34d39933" : "#f8717133") }}>
-                  <span style={{ fontSize: 10, color: "#6688aa" }}>Cambio desde inicio: </span>
-                  <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, color: parseFloat(weightChange) <= 0 ? "#34d399" : "#f87171" }}>{parseFloat(weightChange) > 0 ? "+" : ""}{weightChange} kg</span>
+                <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "var(--raised)" }}>
+                  <span style={{ fontSize: 11, color: "var(--mid)" }}>Cambio desde inicio: </span>
+                  <span className="num" style={{ fontWeight: 700, color: parseFloat(weightChange) <= 0 ? "var(--good)" : "var(--bad)" }}>{parseFloat(weightChange) > 0 ? "+" : ""}{weightChange} kg</span>
                 </div>
               )}
             </div>
             <div className="card">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".12em", textTransform: "uppercase" }}>Registro de peso</div>
-                <button className="btn-g" style={{ fontSize: 10, padding: "6px 12px" }} onClick={function() { setShowAddWeight(!showAddWeight); }}>{showAddWeight ? "✕" : "+ Peso"}</button>
+                <div className="eyebrow">Registro de peso</div>
+                <button className="btn-g" style={{ fontSize: 11, padding: "6px 12px" }} onClick={function() { setShowAddWeight(!showAddWeight); }}>{showAddWeight ? "✕" : "+ Peso"}</button>
               </div>
               {showAddWeight && (
                 <div className="fi" style={{ marginBottom: 14, display: "flex", gap: 8 }}>
@@ -882,19 +1052,19 @@ export default function App() {
               )}
               {weights.slice().reverse().map(function(w, i) {
                 return (
-                  <div key={w.date} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < weights.length - 1 ? "1px solid #0e1520" : "none" }}>
+                  <div key={w.date} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: i < weights.length - 1 ? "1px solid var(--line-soft)" : "none" }}>
                     <div>
-                      <div style={{ fontSize: 11, color: "#7799aa" }}>{fmtDate(w.date)}</div>
-                      <div style={{ fontSize: 9, color: "#6688aa", marginTop: 2 }}>{w.note}</div>
+                      <div style={{ fontSize: 12 }}>{fmtDate(w.date)}</div>
+                      <div style={{ fontSize: 10, color: "var(--low)", marginTop: 2 }}>{w.note}</div>
                     </div>
-                    <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 18, color: "#a78bfa" }}>{w.kg} <span style={{ fontSize: 10, color: "#6688aa" }}>kg</span></div>
+                    <div className="num" style={{ fontWeight: 800, fontSize: 17, color: "var(--sleep)" }}>{w.kg} <span style={{ fontSize: 10, color: "var(--low)" }}>kg</span></div>
                   </div>
                 );
               })}
             </div>
-            <div className="card" style={{ background: "#0a130e", borderColor: "#1a2e1e" }}>
-              <div style={{ fontSize: 9, color: "#4a8060", letterSpacing: ".1em", textTransform: "uppercase", marginBottom: 8 }}>Objetivo</div>
-              <div style={{ fontSize: 11, color: "#4a8060", lineHeight: 1.7 }}>Déficit de ~400-500 kcal/día &rarr; pérdida estimada de ~0.3-0.5 kg/semana.<br/>Pesaje semanal: <span style={{ color: "#34d399" }}>lunes por la mañana, en ayunas</span>.</div>
+            <div className="card" style={{ background: "rgba(74,222,128,.05)", borderColor: "rgba(74,222,128,.18)" }}>
+              <div className="eyebrow" style={{ color: "var(--good)", marginBottom: 8 }}>Objetivo</div>
+              <div style={{ fontSize: 11.5, color: "var(--mid)", lineHeight: 1.7 }}>Déficit de ~400-500 kcal/día &rarr; pérdida estimada de ~0.3-0.5 kg/semana.<br />Pesaje semanal: <span style={{ color: "var(--good)" }}>lunes por la mañana, en ayunas</span>.</div>
             </div>
           </div>
         )}
@@ -908,31 +1078,31 @@ export default function App() {
 
             {histTab === "days" && history.days.slice().reverse().map(function(d) {
               var tt = dayTotals(d);
-              var bc = tt.balance > 300 ? "#f87171" : tt.balance < -300 ? "#34d399" : "#fbbf24";
+              var bc = tt.balance > 300 ? "var(--bad)" : tt.balance < -300 ? "var(--good)" : "var(--warn)";
               var pp = Math.min(100, Math.round(tt.protein / PROT_GOAL * 100));
-              var pc = pp >= 80 ? "#34d399" : pp >= 50 ? "#fbbf24" : "#f87171";
+              var pc = pp >= 80 ? "var(--good)" : pp >= 50 ? "var(--warn)" : "var(--bad)";
               return (
                 <div key={d.date} className="card" style={{ cursor: "pointer" }} onClick={function() { setActiveDate(d.date); setTab("log"); }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <div>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 14, color: "#c8dce8", marginBottom: 3 }}>{d.label || fmtDate(d.date)}</div>
-                      <div style={{ fontSize: 9, color: "#6688aa" }}>{d.meals.length} alimentos</div>
+                      <div className="num" style={{ fontWeight: 700, fontSize: 14, marginBottom: 3, textTransform: "capitalize" }}>{d.label || fmtDate(d.date)}</div>
+                      <div style={{ fontSize: 10, color: "var(--low)" }}>{d.meals.length} alimentos</div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 20, color: "#38bdf8" }}>{Math.round(tt.cals)}</div>
-                      <div style={{ fontSize: 9, color: bc, marginTop: 1 }}>{tt.balance > 0 ? "+" : ""}{Math.round(tt.balance)} bal</div>
+                      <div className="num" style={{ fontWeight: 800, fontSize: 20, color: "var(--acc)" }}>{Math.round(tt.cals)}</div>
+                      <div className="num" style={{ fontSize: 10, color: bc, marginTop: 1 }}>{tt.balance > 0 ? "+" : ""}{Math.round(tt.balance)} bal</div>
                     </div>
                   </div>
                   <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <span className="badge" style={{ background: "#0e1a30", color: "#60a5fa" }}>P {Math.round(tt.protein)}g</span>
-                    <span className="badge" style={{ background: "#0a1a20", color: "#34d399" }}>C {Math.round(tt.carbs)}g</span>
-                    <span className="badge" style={{ background: "#1a1510", color: "#fbbf24" }}>G {Math.round(tt.fat)}g</span>
-                    {tt.burn > 0 && <span className="badge" style={{ background: "#0a1a14", color: "#4ade80" }}>- {tt.burn} kcal</span>}
+                    <span className="badge" style={{ background: "rgba(122,167,255,.13)", color: "var(--prot)" }}>P {Math.round(tt.protein)}g</span>
+                    <span className="badge" style={{ background: "rgba(74,222,128,.12)", color: "var(--carb)" }}>C {Math.round(tt.carbs)}g</span>
+                    <span className="badge" style={{ background: "rgba(242,178,62,.12)", color: "var(--fat)" }}>G {Math.round(tt.fat)}g</span>
+                    {tt.burn > 0 && <span className="badge" style={{ background: "rgba(52,211,153,.12)", color: "var(--burn)" }}>- {tt.burn} kcal</span>}
                   </div>
                   <div style={{ marginTop: 10 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                      <span style={{ fontSize: 8, color: "#6688aa" }}>Proteína</span>
-                      <span style={{ fontSize: 8, color: pc }}>{Math.round(tt.protein)}g / {PROT_GOAL}g</span>
+                      <span style={{ fontSize: 9.5, color: "var(--low)" }}>Proteína</span>
+                      <span className="num" style={{ fontSize: 9.5, color: pc }}>{Math.round(tt.protein)}g / {PROT_GOAL}g</span>
                     </div>
                     <div className="bar"><div className="bar-fill" style={{ width: pp + "%", background: pc }} /></div>
                   </div>
@@ -942,8 +1112,8 @@ export default function App() {
 
             {histTab === "trend" && (
               <div className="card">
-                <div style={{ fontSize: 9, color: "#6688aa", letterSpacing: ".12em", textTransform: "uppercase", marginBottom: 4 }}>Calorías por día</div>
-                <div style={{ fontSize: 8, color: "#445566", marginBottom: 12 }}>Scroll para ver todos los días →</div>
+                <div className="eyebrow" style={{ marginBottom: 4 }}>Calorías por día</div>
+                <div style={{ fontSize: 9.5, color: "var(--low)", marginBottom: 12 }}>Scroll para ver todos los días →</div>
                 <div style={{ overflowX: "auto", overflowY: "visible", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
                   {(function() {
                     var BAR_W = 44;
@@ -955,7 +1125,6 @@ export default function App() {
                     var visibleW = 7 * STEP;
                     var trendMaxCals = Math.max.apply(null, trend.map(function(d) { return d.cals; }).concat([TDEE_BASE + 200]));
 
-                    // Trend line points (linear regression)
                     var validDays = trend.filter(function(d) { return d.cals > 0; });
                     var trendPoints = "";
                     if (validDays.length >= 2) {
@@ -974,36 +1143,49 @@ export default function App() {
 
                     return (
                       <svg width={Math.max(totalW, visibleW)} height="130" viewBox={"0 0 " + Math.max(totalW, visibleW) + " 130"} style={{ display: "block", minWidth: totalW }}>
-                        <line x1="0" y1={H - (TDEE_BASE / trendMaxCals) * H} x2={totalW} y2={H - (TDEE_BASE / trendMaxCals) * H} stroke="#2a3848" strokeWidth="1" strokeDasharray="4 3" />
-                        <text x={totalW - 4} y={H - (TDEE_BASE / trendMaxCals) * H - 3} fontSize="7" fill="#445566" fontFamily="JetBrains Mono" textAnchor="end">TDEE</text>
+                        <line x1="0" y1={H - (TDEE_BASE / trendMaxCals) * H} x2={totalW} y2={H - (TDEE_BASE / trendMaxCals) * H} stroke="#2a3343" strokeWidth="1" strokeDasharray="4 3" />
+                        <text x={totalW - 4} y={H - (TDEE_BASE / trendMaxCals) * H - 3} fontSize="7" fill="#5B6675" fontFamily="JetBrains Mono" textAnchor="end">TDEE</text>
                         {trend.map(function(d, i) {
                           var barH = d.cals > 0 ? Math.max(4, (d.cals / trendMaxCals) * H) : 0;
                           var x = i * STEP + 10;
-                          var bc2 = d.balance > 300 ? "#f87171" : d.balance < -300 ? "#34d399" : "#38bdf8";
+                          var bc2 = d.balance > 300 ? "#FB7185" : d.balance < -300 ? "#4ADE80" : "#2DD4BF";
                           return (
                             <g key={d.date}>
                               {barH > 0 && <rect x={x} y={H - barH} width={BAR_W} height={barH} rx={3} fill={bc2} opacity={d.date === activeDate ? 1 : 0.45} />}
-                              <text x={x + BAR_W / 2} y={118} textAnchor="middle" fontSize="6" fill="#445566" fontFamily="JetBrains Mono">{(d.label || "").slice(0, 7)}</text>
+                              <text x={x + BAR_W / 2} y={118} textAnchor="middle" fontSize="6" fill="#5B6675" fontFamily="JetBrains Mono">{(d.label || "").slice(0, 7)}</text>
                               {barH > 0 && <text x={x + BAR_W / 2} y={H - barH - 4} textAnchor="middle" fontSize="7" fill={bc2} fontFamily="JetBrains Mono">{Math.round(d.cals)}</text>}
                             </g>
                           );
                         })}
-                        {trendPoints && <polyline points={trendPoints} fill="none" stroke="#7dd3fc" strokeWidth="2" strokeLinecap="round" opacity="0.8" />}
+                        {trendPoints && <polyline points={trendPoints} fill="none" stroke="#5EEAD4" strokeWidth="2" strokeLinecap="round" opacity="0.8" />}
                       </svg>
                     );
                   })()}
                 </div>
-                <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", fontSize: 10, color: "#6688aa" }}>
-                  <span>Promedio: <span style={{ color: "#38bdf8" }}>{avgCals} kcal</span></span>
-                  <span>Balance medio: <span style={{ color: "#34d399" }}>{avgBalance} kcal</span></span>
+                <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--mid)" }}>
+                  <span>Promedio: <span className="num" style={{ color: "var(--acc)" }}>{avgCals} kcal</span></span>
+                  <span>Balance medio: <span className="num" style={{ color: "var(--good)" }}>{avgBalance} kcal</span></span>
                 </div>
               </div>
             )}
 
-            <div style={{ textAlign: "center", fontSize: 9, color: "#445566", paddingTop: 4 }}>{history.days.length} días registrados</div>
+            <div style={{ textAlign: "center", fontSize: 10, color: "var(--low)", paddingTop: 4 }}>{history.days.length} días registrados</div>
           </div>
         )}
 
+      </div>
+
+      <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 30, background: "rgba(15,18,24,.94)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", borderTop: "1px solid var(--line-soft)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div style={{ maxWidth: 480, margin: "0 auto", display: "flex" }}>
+          {[["log", "hoy", "Hoy"], ["calendario", "cal", "Calendario"], ["balance", "bal", "Balance"], ["peso", "peso", "Peso"], ["historial", "hist", "Historial"]].map(function(nv) {
+            return (
+              <button key={nv[0]} className={"navbtn" + (tab === nv[0] ? " on" : "")} onClick={function() { setTab(nv[0]); }}>
+                <Icon name={nv[1]} />
+                <span>{nv[2]}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
