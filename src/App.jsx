@@ -347,7 +347,7 @@ export default function App() {
   const [form, setForm] = useState({ name: "", cals: "", prot: "", carbs: "", fat: "", time: "13:00", note: "" });
   const [weightForm, setWeightForm] = useState({ date: "", kg: "" });
   const [saving, setSaving] = useState(false);
-  const [histTab, setHistTab] = useState("days");
+  const [histTab, setHistTab] = useState("30");
   const [ouraLoading, setOuraLoading] = useState(false);
   const [ouraError, setOuraError] = useState(null);
   const [showAI, setShowAI] = useState(false);
@@ -594,12 +594,38 @@ export default function App() {
     setActiveDate(dateStr);
   }
 
-  // ----- Anillo de calorías -----
-  var ringR = 56;
-  var ringCirc = 2 * Math.PI * ringR;
-  var ringPct = Math.min(1, t.cals / limit);
-  var ringOver = t.cals > limit;
-  var ringColor = ringOver ? "var(--bad)" : t.balance < -300 ? "var(--good)" : "var(--acc)";
+  // ----- Anillos (estilo Apple Health): exterior alimentación, interior ejercicio -----
+  var foodR = 56;
+  var foodCirc = 2 * Math.PI * foodR;
+  var foodPct = Math.min(1, t.cals / limit);
+  var foodOver = t.cals > limit;
+  var foodRingColor = foodOver ? "var(--bad)" : t.balance < -300 ? "var(--good)" : "var(--acc)";
+  var exR = 42;
+  var exCirc = 2 * Math.PI * exR;
+  var exPct = Math.min(1, Math.max(t.burn / BURN_GOOD, (t.steps || 0) / STEPS_GOAL));
+  var exRingColor = exPct >= 1 ? "var(--good)" : exPct > 0 ? "var(--warn)" : "var(--raised)";
+
+  var dateStrip = (
+    <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
+      <div className="day-pill" onClick={goToday} style={{ display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed var(--line)" }}>
+        <div style={{ fontSize: 18, color: "var(--low)", lineHeight: 1 }}>+</div>
+      </div>
+      {history.days.slice().reverse().map(function(d) {
+        var sc = dayScores(d);
+        var dnum = d.date.slice(8);
+        return (
+          <div key={d.date} className={"day-pill" + (d.date === activeDate ? " active" : "")} onClick={function() { setActiveDate(d.date); }}>
+            <div style={{ fontSize: 9, color: "var(--low)", textTransform: "uppercase" }}>{(d.label || fmtDate(d.date)).slice(0, 3)}</div>
+            <div className="num" style={{ fontWeight: 700, fontSize: 16, color: d.date === activeDate ? "var(--acc)" : "var(--hi)", margin: "2px 0" }}>{parseInt(dnum, 10)}</div>
+            <div style={{ display: "flex", justifyContent: "center", gap: 3 }}>
+              <span className="sdot" style={{ background: SCORE_C[sc.food] }} />
+              <span className="sdot" style={{ background: SCORE_C[sc.ex] }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
 
   // ----- Calendario -----
   var MONTHS_ES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -657,43 +683,37 @@ export default function App() {
         {tab === "log" && (
           <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
 
-            <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
-              <div className="day-pill" onClick={goToday} style={{ display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed var(--line)" }}>
-                <div style={{ fontSize: 18, color: "var(--low)", lineHeight: 1 }}>+</div>
-              </div>
-              {history.days.slice().reverse().map(function(d) {
-                var sc = dayScores(d);
-                var dnum = d.date.slice(8);
-                return (
-                  <div key={d.date} className={"day-pill" + (d.date === activeDate ? " active" : "")} onClick={function() { setActiveDate(d.date); }}>
-                    <div style={{ fontSize: 9, color: "var(--low)", textTransform: "uppercase" }}>{(d.label || fmtDate(d.date)).slice(0, 3)}</div>
-                    <div className="num" style={{ fontWeight: 700, fontSize: 16, color: d.date === activeDate ? "var(--acc)" : "var(--hi)", margin: "2px 0" }}>{parseInt(dnum, 10)}</div>
-                    <div style={{ display: "flex", justifyContent: "center", gap: 3 }}>
-                      <span className="sdot" style={{ background: SCORE_C[sc.food] }} />
-                      <span className="sdot" style={{ background: SCORE_C[sc.ex] }} />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            {dateStrip}
 
             <div className="card" style={{ display: "flex", alignItems: "center", gap: 18 }}>
               <div style={{ position: "relative", width: 132, height: 132, flexShrink: 0 }}>
                 <svg width="132" height="132" viewBox="0 0 132 132">
-                  <circle cx="66" cy="66" r={ringR} fill="none" stroke="var(--raised)" strokeWidth="11" />
-                  <circle cx="66" cy="66" r={ringR} fill="none" stroke={ringColor} strokeWidth="11" strokeLinecap="round"
-                    strokeDasharray={ringCirc} strokeDashoffset={ringCirc * (1 - ringPct)}
+                  <circle cx="66" cy="66" r={foodR} fill="none" stroke="var(--raised)" strokeWidth="10" />
+                  <circle cx="66" cy="66" r={foodR} fill="none" stroke={foodRingColor} strokeWidth="10" strokeLinecap="round"
+                    strokeDasharray={foodCirc} strokeDashoffset={foodCirc * (1 - foodPct)}
                     transform="rotate(-90 66 66)" style={{ transition: "stroke-dashoffset .6s ease" }} />
+                  <circle cx="66" cy="66" r={exR} fill="none" stroke="var(--raised)" strokeWidth="10" />
+                  {exPct > 0 && <circle cx="66" cy="66" r={exR} fill="none" stroke={exRingColor} strokeWidth="10" strokeLinecap="round"
+                    strokeDasharray={exCirc} strokeDashoffset={exCirc * (1 - exPct)}
+                    transform="rotate(-90 66 66)" style={{ transition: "stroke-dashoffset .6s ease" }} />}
                 </svg>
                 <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                  <div className="num" style={{ fontSize: 27, fontWeight: 800, lineHeight: 1 }}>{Math.round(t.cals)}</div>
-                  <div style={{ fontSize: 9.5, color: "var(--low)", marginTop: 3 }}>de {limit} kcal</div>
+                  <div className="num" style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: balColor }}>{t.balance > 0 ? "+" : ""}{Math.round(t.balance)}</div>
+                  <div style={{ fontSize: 8.5, color: "var(--low)", marginTop: 3 }}>balance</div>
                 </div>
               </div>
               <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
-                <div>
-                  <div className="eyebrow">Balance neto</div>
-                  <div className="num" style={{ fontSize: 22, fontWeight: 800, color: balColor }}>{t.balance > 0 ? "+" : ""}{Math.round(t.balance)}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span className="sdot" style={{ background: foodRingColor, width: 8, height: 8 }} />
+                    <span style={{ fontSize: 10.5, color: "var(--mid)" }}>Alimentación</span>
+                    <span className="num" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto" }}>{Math.round(t.cals)} <span style={{ color: "var(--low)", fontWeight: 400 }}>/ {limit} kcal</span></span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span className="sdot" style={{ background: exPct > 0 ? exRingColor : "var(--line)", width: 8, height: 8 }} />
+                    <span style={{ fontSize: 10.5, color: "var(--mid)" }}>Ejercicio</span>
+                    <span className="num" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto" }}>{Math.round(exPct * 100)}<span style={{ color: "var(--low)", fontWeight: 400 }}>% de la meta</span></span>
+                  </div>
                 </div>
                 {[["Proteína", Math.round(t.protein) + "g / " + PROT_GOAL + "g", protPct, protColor],
                   ["Quemado", t.burn > 0 ? t.burn + " kcal" : "—", burnPct, "var(--burn)"],
@@ -937,6 +957,7 @@ export default function App() {
 
         {tab === "balance" && (
           <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {dateStrip}
             <div className="card">
               <div className="eyebrow" style={{ marginBottom: 12 }}>Actividad del día</div>
               {day.oura ? (
@@ -1071,105 +1092,160 @@ export default function App() {
 
         {tab === "historial" && (
           <div className="fi" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
-              <button className={"btn-g" + (histTab === "days" ? " on" : "")} onClick={function() { setHistTab("days"); }}>Días</button>
-              <button className={"btn-g" + (histTab === "trend" ? " on" : "")} onClick={function() { setHistTab("trend"); }}>Tendencia</button>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              {[["7", "7 días"], ["30", "30 días"], ["all", "Todo"]].map(function(p) {
+                return (
+                  <button key={p[0]} className={"btn-g" + (histTab === p[0] ? " on" : "")} onClick={function() { setHistTab(p[0]); }}>{p[1]}</button>
+                );
+              })}
             </div>
 
-            {histTab === "days" && history.days.slice().reverse().map(function(d) {
-              var tt = dayTotals(d);
-              var bc = tt.balance > 300 ? "var(--bad)" : tt.balance < -300 ? "var(--good)" : "var(--warn)";
-              var pp = Math.min(100, Math.round(tt.protein / PROT_GOAL * 100));
-              var pc = pp >= 80 ? "var(--good)" : pp >= 50 ? "var(--warn)" : "var(--bad)";
+            {(function() {
+              var tracked = trend.filter(function(d) { return d.cals > 0; });
+              var n = histTab === "7" ? 7 : histTab === "30" ? 30 : tracked.length;
+              var period = tracked.slice(-n);
+              if (period.length === 0) {
+                return <div className="card" style={{ textAlign: "center", fontSize: 12, color: "var(--low)" }}>Aún no hay días registrados en este periodo</div>;
+              }
+
+              var pAvgCals = Math.round(period.reduce(function(s, d) { return s + d.cals; }, 0) / period.length);
+              var pAvgBal = Math.round(period.reduce(function(s, d) { return s + d.balance; }, 0) / period.length);
+              var pAvgProt = Math.round(period.reduce(function(s, d) { return s + d.protein; }, 0) / period.length);
+              var stepDays = period.filter(function(d) { return d.steps; });
+              var pAvgSteps = stepDays.length > 0 ? Math.round(stepDays.reduce(function(s, d) { return s + d.steps; }, 0) / stepDays.length) : null;
+              var kgEquiv = (period.reduce(function(s, d) { return s + d.balance; }, 0) / 7700).toFixed(2);
+
+              // ---- Gráfica de balance divergente ----
+              var W = 420;
+              var CH = 150;
+              var MID = CH / 2;
+              var PADL = 6;
+              var bw = Math.max(4, Math.floor((W - PADL * 2) / period.length) - 2);
+              var step = (W - PADL * 2) / period.length;
+              var maxAbs = Math.max.apply(null, period.map(function(d) { return Math.abs(d.balance); }).concat([400]));
+              var scaleY = (MID - 16) / maxAbs;
+
+              // ---- Patrón semanal (promedio de balance por día de la semana, todo el registro) ----
+              var WDFULL = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+              var wdSum = [0, 0, 0, 0, 0, 0, 0];
+              var wdCnt = [0, 0, 0, 0, 0, 0, 0];
+              tracked.forEach(function(d) {
+                var parts = d.date.split("-").map(Number);
+                var wd = (new Date(parts[0], parts[1] - 1, parts[2]).getDay() + 6) % 7;
+                wdSum[wd] += d.balance;
+                wdCnt[wd]++;
+              });
+              var wdAvg = wdSum.map(function(s, i) { return wdCnt[i] > 0 ? Math.round(s / wdCnt[i]) : null; });
+              var wdMaxAbs = Math.max.apply(null, wdAvg.map(function(v) { return v === null ? 0 : Math.abs(v); }).concat([200]));
+              var worstIdx = -1;
+              wdAvg.forEach(function(v, i) { if (v !== null && (worstIdx === -1 || v > wdAvg[worstIdx])) worstIdx = i; });
+
+              // ---- Rachas (días consecutivos cumpliendo la meta, desde el más reciente) ----
+              function streak(check) {
+                var s = 0;
+                var i;
+                for (i = tracked.length - 1; i >= 0; i--) {
+                  if (check(tracked[i])) s++;
+                  else break;
+                }
+                return s;
+              }
+              var protStreak = streak(function(d) { return d.protein >= PROT_MIN; });
+              var stepStreak = streak(function(d) { return (d.steps || 0) >= STEPS_GOAL; });
+              var defStreak = streak(function(d) { return d.balance <= 0; });
+
               return (
-                <div key={d.date} className="card" style={{ cursor: "pointer" }} onClick={function() { setActiveDate(d.date); setTab("log"); }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
-                      <div className="num" style={{ fontWeight: 700, fontSize: 14, marginBottom: 3, textTransform: "capitalize" }}>{d.label || fmtDate(d.date)}</div>
-                      <div style={{ fontSize: 10, color: "var(--low)" }}>{d.meals.length} alimentos</div>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <div className="num" style={{ fontWeight: 800, fontSize: 20, color: "var(--acc)" }}>{Math.round(tt.cals)}</div>
-                      <div className="num" style={{ fontSize: 10, color: bc, marginTop: 1 }}>{tt.balance > 0 ? "+" : ""}{Math.round(tt.balance)} bal</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+
+                  <div className="card">
+                    <div className="eyebrow" style={{ marginBottom: 4 }}>Balance diario</div>
+                    <div style={{ fontSize: 9.5, color: "var(--low)", marginBottom: 12 }}>Hacia abajo = déficit (bien) · hacia arriba = superávit</div>
+                    <svg width="100%" viewBox={"0 0 " + W + " " + CH} style={{ display: "block" }}>
+                      <line x1="0" y1={MID} x2={W} y2={MID} stroke="#2a3343" strokeWidth="1" />
+                      <text x={W - 2} y={MID - 4} fontSize="7" fill="#5B6675" fontFamily="JetBrains Mono" textAnchor="end">0</text>
+                      {period.map(function(d, i) {
+                        var h = Math.abs(d.balance) * scaleY;
+                        var up = d.balance > 0;
+                        var x = PADL + i * step + (step - bw) / 2;
+                        var y = up ? MID - h : MID;
+                        var c = d.balance > 300 ? "#FB7185" : d.balance < -300 ? "#4ADE80" : "#F2B23E";
+                        var dnum = parseInt(d.date.slice(8), 10);
+                        return (
+                          <g key={d.date} onClick={function() { setActiveDate(d.date); setTab("log"); }} style={{ cursor: "pointer" }}>
+                            <rect x={x} y={y} width={bw} height={Math.max(2, h)} rx={2} fill={c} opacity={d.date === activeDate ? 1 : 0.65} />
+                            {period.length <= 14 && <text x={x + bw / 2} y={CH - 3} textAnchor="middle" fontSize="7" fill="#5B6675" fontFamily="JetBrains Mono">{dnum}</text>}
+                          </g>
+                        );
+                      })}
+                    </svg>
+                    <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", fontSize: 10.5, color: "var(--mid)" }}>
+                      <span>Balance medio: <span className="num" style={{ color: pAvgBal <= 0 ? "var(--good)" : "var(--bad)", fontWeight: 700 }}>{pAvgBal > 0 ? "+" : ""}{pAvgBal} kcal</span></span>
+                      <span>≈ <span className="num" style={{ color: parseFloat(kgEquiv) <= 0 ? "var(--good)" : "var(--bad)", fontWeight: 700 }}>{parseFloat(kgEquiv) > 0 ? "+" : ""}{kgEquiv} kg</span> teóricos</span>
                     </div>
                   </div>
-                  <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <span className="badge" style={{ background: "rgba(122,167,255,.13)", color: "var(--prot)" }}>P {Math.round(tt.protein)}g</span>
-                    <span className="badge" style={{ background: "rgba(74,222,128,.12)", color: "var(--carb)" }}>C {Math.round(tt.carbs)}g</span>
-                    <span className="badge" style={{ background: "rgba(242,178,62,.12)", color: "var(--fat)" }}>G {Math.round(tt.fat)}g</span>
-                    {tt.burn > 0 && <span className="badge" style={{ background: "rgba(52,211,153,.12)", color: "var(--burn)" }}>- {tt.burn} kcal</span>}
-                  </div>
-                  <div style={{ marginTop: 10 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                      <span style={{ fontSize: 9.5, color: "var(--low)" }}>Proteína</span>
-                      <span className="num" style={{ fontSize: 9.5, color: pc }}>{Math.round(tt.protein)}g / {PROT_GOAL}g</span>
+
+                  <div className="card">
+                    <div className="eyebrow" style={{ marginBottom: 4 }}>Patrón semanal</div>
+                    <div style={{ fontSize: 9.5, color: "var(--low)", marginBottom: 12 }}>Balance medio por día de la semana (todo el registro)</div>
+                    <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 110 }}>
+                      {WDFULL.map(function(w, i) {
+                        var v = wdAvg[i];
+                        var h = v === null ? 0 : Math.max(4, Math.abs(v) / wdMaxAbs * 70);
+                        var c = v === null ? "var(--raised)" : v > 300 ? "var(--bad)" : v < -300 ? "var(--good)" : v > 0 ? "var(--warn)" : "var(--acc)";
+                        return (
+                          <div key={w} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", gap: 4, height: "100%" }}>
+                            <span className="num" style={{ fontSize: 8.5, color: c, fontWeight: 600 }}>{v === null ? "—" : (v > 0 ? "+" : "") + v}</span>
+                            <div style={{ width: "100%", maxWidth: 30, height: h, borderRadius: 5, background: c, opacity: i === worstIdx ? 1 : 0.7, border: i === worstIdx ? "1px solid var(--hi)" : "none" }} />
+                            <span style={{ fontSize: 9, color: i >= 5 ? "var(--mid)" : "var(--low)", fontWeight: i === worstIdx ? 700 : 400 }}>{w}</span>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div className="bar"><div className="bar-fill" style={{ width: pp + "%", background: pc }} /></div>
+                    {worstIdx >= 0 && wdAvg[worstIdx] > 0 && (
+                      <div style={{ marginTop: 10, fontSize: 10.5, color: "var(--mid)" }}>Tu día más débil es el <b style={{ color: "var(--hi)" }}>{WDFULL[worstIdx]}</b> (+{wdAvg[worstIdx]} kcal de media)</div>
+                    )}
+                    {worstIdx >= 0 && wdAvg[worstIdx] <= 0 && (
+                      <div style={{ marginTop: 10, fontSize: 10.5, color: "var(--good)" }}>Todos los días de la semana en déficit medio 💪</div>
+                    )}
                   </div>
+
+                  <div className="card">
+                    <div className="eyebrow" style={{ marginBottom: 12 }}>Rachas actuales</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 9 }}>
+                      {[["🥩", "Proteína ≥ " + PROT_MIN + "g", protStreak], ["👟", "≥ " + (STEPS_GOAL / 1000) + "k pasos", stepStreak], ["⚖️", "En déficit", defStreak]].map(function(s) {
+                        return (
+                          <div key={s[1]} style={{ background: "var(--raised)", borderRadius: 12, padding: "12px 8px", textAlign: "center" }}>
+                            <div style={{ fontSize: 16 }}>{s[0]}</div>
+                            <div className="num" style={{ fontWeight: 800, fontSize: 20, color: s[2] > 0 ? "var(--good)" : "var(--low)", margin: "2px 0" }}>{s[2]}</div>
+                            <div style={{ fontSize: 8.5, color: "var(--mid)", lineHeight: 1.3 }}>{s[1]}<br />{s[2] === 1 ? "día seguido" : "días seguidos"}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="card">
+                    <div className="eyebrow" style={{ marginBottom: 12 }}>Promedios del periodo ({period.length} días)</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 9 }}>
+                      {[["Ingesta media", pAvgCals + " kcal", "var(--acc)"],
+                        ["Balance medio", (pAvgBal > 0 ? "+" : "") + pAvgBal + " kcal", pAvgBal <= 0 ? "var(--good)" : "var(--bad)"],
+                        ["Proteína media", pAvgProt + " g", pAvgProt >= PROT_MIN ? "var(--good)" : "var(--warn)"],
+                        ["Pasos medios", pAvgSteps ? pAvgSteps.toLocaleString("es-ES") : "—", pAvgSteps && pAvgSteps >= STEPS_GOAL ? "var(--good)" : "var(--warn)"]].map(function(s) {
+                        return (
+                          <div key={s[0]} style={{ background: "var(--raised)", borderRadius: 12, padding: "11px 13px" }}>
+                            <div style={{ fontSize: 10, color: "var(--mid)", marginBottom: 4 }}>{s[0]}</div>
+                            <div className="num" style={{ fontWeight: 700, fontSize: 16, color: s[2] }}>{s[1]}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ textAlign: "center", fontSize: 10, color: "var(--low)", paddingTop: 2 }}>{tracked.length} días con registro en total</div>
                 </div>
               );
-            })}
-
-            {histTab === "trend" && (
-              <div className="card">
-                <div className="eyebrow" style={{ marginBottom: 4 }}>Calorías por día</div>
-                <div style={{ fontSize: 9.5, color: "var(--low)", marginBottom: 12 }}>Scroll para ver todos los días →</div>
-                <div style={{ overflowX: "auto", overflowY: "visible", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
-                  {(function() {
-                    var BAR_W = 44;
-                    var GAP = 16;
-                    var STEP = BAR_W + GAP;
-                    var H = 100;
-                    var n = trend.length;
-                    var totalW = n * STEP + 20;
-                    var visibleW = 7 * STEP;
-                    var trendMaxCals = Math.max.apply(null, trend.map(function(d) { return d.cals; }).concat([TDEE_BASE + 200]));
-
-                    var validDays = trend.filter(function(d) { return d.cals > 0; });
-                    var trendPoints = "";
-                    if (validDays.length >= 2) {
-                      var sumX = 0; var sumY = 0; var sumXY = 0; var sumX2 = 0; var vn = validDays.length;
-                      validDays.forEach(function(d, i) { sumX += i; sumY += d.cals; sumXY += i * d.cals; sumX2 += i * i; });
-                      var slope = (vn * sumXY - sumX * sumY) / (vn * sumX2 - sumX * sumX);
-                      var intercept = (sumY - slope * sumX) / vn;
-                      var firstIdx = trend.indexOf(validDays[0]);
-                      var lastIdx = trend.indexOf(validDays[validDays.length - 1]);
-                      var x0 = firstIdx * STEP + BAR_W / 2 + 10;
-                      var y0 = H - (intercept / trendMaxCals) * H;
-                      var x1 = lastIdx * STEP + BAR_W / 2 + 10;
-                      var y1 = H - ((intercept + slope * (validDays.length - 1)) / trendMaxCals) * H;
-                      trendPoints = x0 + "," + y0 + " " + x1 + "," + y1;
-                    }
-
-                    return (
-                      <svg width={Math.max(totalW, visibleW)} height="130" viewBox={"0 0 " + Math.max(totalW, visibleW) + " 130"} style={{ display: "block", minWidth: totalW }}>
-                        <line x1="0" y1={H - (TDEE_BASE / trendMaxCals) * H} x2={totalW} y2={H - (TDEE_BASE / trendMaxCals) * H} stroke="#2a3343" strokeWidth="1" strokeDasharray="4 3" />
-                        <text x={totalW - 4} y={H - (TDEE_BASE / trendMaxCals) * H - 3} fontSize="7" fill="#5B6675" fontFamily="JetBrains Mono" textAnchor="end">TDEE</text>
-                        {trend.map(function(d, i) {
-                          var barH = d.cals > 0 ? Math.max(4, (d.cals / trendMaxCals) * H) : 0;
-                          var x = i * STEP + 10;
-                          var bc2 = d.balance > 300 ? "#FB7185" : d.balance < -300 ? "#4ADE80" : "#2DD4BF";
-                          return (
-                            <g key={d.date}>
-                              {barH > 0 && <rect x={x} y={H - barH} width={BAR_W} height={barH} rx={3} fill={bc2} opacity={d.date === activeDate ? 1 : 0.45} />}
-                              <text x={x + BAR_W / 2} y={118} textAnchor="middle" fontSize="6" fill="#5B6675" fontFamily="JetBrains Mono">{(d.label || "").slice(0, 7)}</text>
-                              {barH > 0 && <text x={x + BAR_W / 2} y={H - barH - 4} textAnchor="middle" fontSize="7" fill={bc2} fontFamily="JetBrains Mono">{Math.round(d.cals)}</text>}
-                            </g>
-                          );
-                        })}
-                        {trendPoints && <polyline points={trendPoints} fill="none" stroke="#5EEAD4" strokeWidth="2" strokeLinecap="round" opacity="0.8" />}
-                      </svg>
-                    );
-                  })()}
-                </div>
-                <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--mid)" }}>
-                  <span>Promedio: <span className="num" style={{ color: "var(--acc)" }}>{avgCals} kcal</span></span>
-                  <span>Balance medio: <span className="num" style={{ color: "var(--good)" }}>{avgBalance} kcal</span></span>
-                </div>
-              </div>
-            )}
-
-            <div style={{ textAlign: "center", fontSize: 10, color: "var(--low)", paddingTop: 4 }}>{history.days.length} días registrados</div>
+            })()}
           </div>
         )}
 
@@ -1177,7 +1253,7 @@ export default function App() {
 
       <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 30, background: "rgba(15,18,24,.94)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", borderTop: "1px solid var(--line-soft)", paddingBottom: "env(safe-area-inset-bottom)" }}>
         <div style={{ maxWidth: 480, margin: "0 auto", display: "flex" }}>
-          {[["log", "hoy", "Hoy"], ["calendario", "cal", "Calendario"], ["balance", "bal", "Balance"], ["peso", "peso", "Peso"], ["historial", "hist", "Historial"]].map(function(nv) {
+          {[["log", "hoy", "Hoy"], ["calendario", "cal", "Calendario"], ["balance", "bal", "Balance"], ["peso", "peso", "Peso"], ["historial", "hist", "Tendencias"]].map(function(nv) {
             return (
               <button key={nv[0]} className={"navbtn" + (tab === nv[0] ? " on" : "")} onClick={function() { setTab(nv[0]); }}>
                 <Icon name={nv[1]} />
