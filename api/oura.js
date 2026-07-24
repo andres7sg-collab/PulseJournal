@@ -24,34 +24,60 @@ export default async function handler(req, res) {
       refreshDebug = { step: "no_refresh_token_env" };
       return null;
     }
+
+    const clientId = process.env.OURA_CLIENT_ID;
+    const clientSecret = process.env.OURA_CLIENT_SECRET;
+    const attempts = [];
+
+    // Attempt 1: Basic auth header
     try {
-      const r = await fetch("https://api.ouraring.com/oauth/token", {
+      const basic = Buffer.from(clientId + ":" + clientSecret).toString("base64");
+      const r1 = await fetch("https://api.ouraring.com/oauth/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Authorization": "Basic " + basic,
+        },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          refresh_token: refreshTokenVal,
+        }),
+      });
+      const d1 = await r1.json();
+      attempts.push({ method: "basic_auth", status: r1.status, body: d1 });
+      if (d1.access_token) {
+        refreshDebug = { attempts: attempts, success: "basic_auth" };
+        return { access_token: d1.access_token, refresh_token: d1.refresh_token };
+      }
+    } catch (e) {
+      attempts.push({ method: "basic_auth", exception: e.message });
+    }
+
+    // Attempt 2: credentials in body with redirect_uri
+    try {
+      const r2 = await fetch("https://api.ouraring.com/oauth/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           grant_type: "refresh_token",
           refresh_token: refreshTokenVal,
-          client_id: process.env.OURA_CLIENT_ID,
-          client_secret: process.env.OURA_CLIENT_SECRET,
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: process.env.OURA_REDIRECT_URI || "",
         }),
       });
-      const data = await r.json();
-      refreshDebug = {
-        step: "oura_response",
-        status: r.status,
-        body: data,
-        refresh_prefix: refreshTokenVal.substring(0, 10) + "...",
-        client_id_present: !!process.env.OURA_CLIENT_ID,
-        client_secret_present: !!process.env.OURA_CLIENT_SECRET,
-      };
-      if (data.access_token) {
-        return { access_token: data.access_token, refresh_token: data.refresh_token };
+      const d2 = await r2.json();
+      attempts.push({ method: "body_with_redirect", status: r2.status, body: d2 });
+      if (d2.access_token) {
+        refreshDebug = { attempts: attempts, success: "body_with_redirect" };
+        return { access_token: d2.access_token, refresh_token: d2.refresh_token };
       }
-      return null;
     } catch (e) {
-      refreshDebug = { step: "exception", message: e.message };
-      return null;
+      attempts.push({ method: "body_with_redirect", exception: e.message });
     }
+
+    refreshDebug = { attempts: attempts, refresh_prefix: refreshTokenVal.substring(0, 12) + "..." };
+    return null;
   }
 
   async function fetchAll(token) {
