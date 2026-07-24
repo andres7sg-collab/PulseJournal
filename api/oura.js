@@ -16,26 +16,40 @@ export default async function handler(req, res) {
 
   const base = "https://api.ouraring.com/v2/usercollection/";
 
+  let refreshDebug = null;
+
   async function refreshToken() {
-    const refreshToken = process.env.OURA_REFRESH_TOKEN;
-    if (!refreshToken) return null;
+    const refreshTokenVal = process.env.OURA_REFRESH_TOKEN;
+    if (!refreshTokenVal) {
+      refreshDebug = { step: "no_refresh_token_env" };
+      return null;
+    }
     try {
       const r = await fetch("https://api.ouraring.com/oauth/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           grant_type: "refresh_token",
-          refresh_token: refreshToken,
+          refresh_token: refreshTokenVal,
           client_id: process.env.OURA_CLIENT_ID,
           client_secret: process.env.OURA_CLIENT_SECRET,
         }),
       });
       const data = await r.json();
+      refreshDebug = {
+        step: "oura_response",
+        status: r.status,
+        body: data,
+        refresh_prefix: refreshTokenVal.substring(0, 10) + "...",
+        client_id_present: !!process.env.OURA_CLIENT_ID,
+        client_secret_present: !!process.env.OURA_CLIENT_SECRET,
+      };
       if (data.access_token) {
         return { access_token: data.access_token, refresh_token: data.refresh_token };
       }
       return null;
     } catch (e) {
+      refreshDebug = { step: "exception", message: e.message };
       return null;
     }
   }
@@ -66,7 +80,7 @@ export default async function handler(req, res) {
         sleepRes = retry.sleepRes;
         workoutRes = retry.workoutRes;
       } else {
-        return res.status(401).json({ error: "Token expired and refresh failed. Re-authorize via /api/oura?action=login" });
+        return res.status(401).json({ error: "Token expired and refresh failed. Re-authorize via /api/oura?action=login", refresh_debug: refreshDebug });
       }
     }
 
