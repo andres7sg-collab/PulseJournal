@@ -278,7 +278,7 @@ function todayStr() {
 }
 
 const css = `
-  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap');
   :root{
     --bg:#0B0D11; --surf:#13171F; --raised:#1A1F2A; --line:#222937; --line-soft:#1A202B;
     --hi:#EEF2F7; --mid:#98A3B6; --low:#5B6675;
@@ -292,6 +292,7 @@ const css = `
   ::-webkit-scrollbar-thumb{background:#222937;border-radius:2px;}
   input,select,textarea{font-family:'Manrope',sans-serif;}
   .num{font-family:'Sora',sans-serif;font-variant-numeric:tabular-nums;}
+  .hero{font-family:'Fraunces',Georgia,serif;font-variant-numeric:tabular-nums lining-nums;font-weight:700;letter-spacing:-.02em;}
   .eyebrow{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--low);}
   .inp{background:var(--raised);border:1px solid var(--line);color:var(--hi);padding:10px 12px;border-radius:10px;font-size:13px;outline:none;transition:border .2s;width:100%;}
   .inp:focus{border-color:var(--acc);}
@@ -534,13 +535,30 @@ export default function App() {
 
   var day = history.days.find(function(d) { return d.date === activeDate; }) || history.days[history.days.length - 1];
   var t = dayTotals(day);
-  var limit = TDEE_BASE + t.burn;
   var balColor = t.balance > 300 ? "var(--bad)" : t.balance < -300 ? "var(--good)" : "var(--warn)";
   var protPct = Math.min(100, Math.round(t.protein / PROT_GOAL * 100));
   var protColor = protPct >= 80 ? "var(--good)" : protPct >= 50 ? "var(--warn)" : "var(--bad)";
-  var burnPct = Math.min(100, Math.round((t.burn / 800) * 100));
   var stepsPct = t.steps ? Math.min(100, Math.round((t.steps / 15000) * 100)) : 0;
   var stepsColor = t.steps ? (t.steps >= STEPS_GOAL ? "var(--good)" : t.steps <= 3000 ? "var(--bad)" : "var(--warn)") : "var(--low)";
+  var protLeft = PROT_GOAL - t.protein;
+  var protHint = protLeft <= 0 ? "Meta cumplida" : protLeft <= 12 ? "Casi está" : protLeft <= 30 ? "1 batido lo cierra" : protLeft <= 55 ? "2 batidos lo cierran" : "Aún queda camino";
+  var sleepScore = day.oura && day.oura.sleep_score ? day.oura.sleep_score : null;
+  var sleepPct = sleepScore ? Math.min(100, sleepScore) : 0;
+  var sleepColor = !sleepScore ? "var(--low)" : sleepScore >= 80 ? "var(--good)" : sleepScore >= 65 ? "var(--warn)" : "var(--bad)";
+  var isToday = day.date === todayStr();
+  var nowH = new Date().getHours() + new Date().getMinutes() / 60;
+  var paceTarget;
+  if (!isToday) paceTarget = 1;
+  else if (nowH < 11) paceTarget = (nowH - 7) / 4 * 0.30;
+  else if (nowH < 16) paceTarget = 0.30 + (nowH - 11) / 5 * 0.35;
+  else if (nowH < 22) paceTarget = 0.65 + (nowH - 16) / 6 * 0.35;
+  else paceTarget = 1;
+  paceTarget = Math.max(0, Math.min(1, paceTarget));
+  var paceExpected = Math.round(PROT_GOAL * paceTarget);
+  var paceDelta = Math.round(t.protein) - paceExpected;
+  var pacePct = paceExpected > 0 ? Math.min(100, Math.round(t.protein / paceExpected * 100)) : (t.protein > 0 ? 100 : 0);
+  var paceColor = paceDelta >= 0 ? "var(--good)" : paceDelta >= -20 ? "var(--warn)" : "var(--bad)";
+  var paceLabel = !isToday ? (t.protein >= PROT_GOAL ? "Meta cumplida" : Math.round(PROT_GOAL - t.protein) + "g por debajo") : (paceDelta >= 0 ? "+" + paceDelta + "g vs ritmo" : paceDelta + "g vs ritmo");
   var lastWeight = weights[weights.length - 1];
   var firstWeight = weights[0] ? weights[0].kg : 82.15;
   var weightChange = weights.length > 1 ? (lastWeight.kg - firstWeight).toFixed(2) : null;
@@ -593,17 +611,6 @@ export default function App() {
     update(newDays);
     setActiveDate(dateStr);
   }
-
-  // ----- Anillos (estilo Apple Health): exterior alimentación, interior ejercicio -----
-  var foodR = 56;
-  var foodCirc = 2 * Math.PI * foodR;
-  var foodPct = Math.min(1, t.cals / limit);
-  var foodOver = t.cals > limit;
-  var foodRingColor = foodOver ? "var(--bad)" : t.balance < -300 ? "var(--good)" : "var(--acc)";
-  var exR = 42;
-  var exCirc = 2 * Math.PI * exR;
-  var exPct = Math.min(1, Math.max(t.burn / BURN_GOOD, (t.steps || 0) / STEPS_GOAL));
-  var exRingColor = exPct >= 1 ? "var(--good)" : exPct > 0 ? "var(--warn)" : "var(--raised)";
 
   var dateStrip = (
     <div style={{ display: "flex", gap: 7, overflowX: "auto", paddingBottom: 4, scrollbarWidth: "none" }}>
@@ -685,44 +692,33 @@ export default function App() {
 
             {dateStrip}
 
-            <div className="card" style={{ display: "flex", alignItems: "center", gap: 18 }}>
-              <div style={{ position: "relative", width: 132, height: 132, flexShrink: 0 }}>
-                <svg width="132" height="132" viewBox="0 0 132 132">
-                  <circle cx="66" cy="66" r={foodR} fill="none" stroke="var(--raised)" strokeWidth="10" />
-                  <circle cx="66" cy="66" r={foodR} fill="none" stroke={foodRingColor} strokeWidth="10" strokeLinecap="round"
-                    strokeDasharray={foodCirc} strokeDashoffset={foodCirc * (1 - foodPct)}
-                    transform="rotate(-90 66 66)" style={{ transition: "stroke-dashoffset .6s ease" }} />
-                  <circle cx="66" cy="66" r={exR} fill="none" stroke="var(--raised)" strokeWidth="10" />
-                  {exPct > 0 && <circle cx="66" cy="66" r={exR} fill="none" stroke={exRingColor} strokeWidth="10" strokeLinecap="round"
-                    strokeDasharray={exCirc} strokeDashoffset={exCirc * (1 - exPct)}
-                    transform="rotate(-90 66 66)" style={{ transition: "stroke-dashoffset .6s ease" }} />}
-                </svg>
-                <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                  <div className="num" style={{ fontSize: 20, fontWeight: 800, lineHeight: 1, color: balColor }}>{t.balance > 0 ? "+" : ""}{Math.round(t.balance)}</div>
-                  <div style={{ fontSize: 8.5, color: "var(--low)", marginTop: 3 }}>balance</div>
+            <div className="card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div style={{ background: "var(--raised)", borderRadius: 12, padding: "13px 14px" }}>
+                  <div style={{ fontSize: 10, color: "var(--mid)", marginBottom: 5 }}>Faltan de proteína</div>
+                  <div className="hero" style={{ fontSize: 38, lineHeight: 1, color: protLeft <= 0 ? "var(--good)" : protColor }}>
+                    {protLeft <= 0 ? "0" : Math.round(protLeft)}<span style={{ fontSize: 18, color: "var(--low)" }}> g</span>
+                  </div>
+                  <div style={{ fontSize: 10, color: protLeft <= 0 ? "var(--good)" : "var(--low)", marginTop: 6, lineHeight: 1.3 }}>{protHint}</div>
+                </div>
+                <div style={{ background: "var(--raised)", borderRadius: 12, padding: "13px 14px" }}>
+                  <div style={{ fontSize: 10, color: "var(--mid)", marginBottom: 5 }}>Balance neto</div>
+                  <div className="hero" style={{ fontSize: 38, lineHeight: 1, color: balColor }}>
+                    {t.balance > 0 ? "+" : "−"}{Math.abs(Math.round(t.balance))}
+                  </div>
+                  <div style={{ fontSize: 10, color: "var(--low)", marginTop: 6, lineHeight: 1.3 }}>{Math.round(t.cals)} in · {t.burn} out</div>
                 </div>
               </div>
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span className="sdot" style={{ background: foodRingColor, width: 8, height: 8 }} />
-                    <span style={{ fontSize: 10.5, color: "var(--mid)" }}>Alimentación</span>
-                    <span className="num" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto" }}>{Math.round(t.cals)} <span style={{ color: "var(--low)", fontWeight: 400 }}>/ {limit} kcal</span></span>
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span className="sdot" style={{ background: exPct > 0 ? exRingColor : "var(--line)", width: 8, height: 8 }} />
-                    <span style={{ fontSize: 10.5, color: "var(--mid)" }}>Ejercicio</span>
-                    <span className="num" style={{ fontSize: 10.5, fontWeight: 700, marginLeft: "auto" }}>{Math.round(exPct * 100)}<span style={{ color: "var(--low)", fontWeight: 400 }}>% de la meta</span></span>
-                  </div>
-                </div>
-                {[["Proteína", Math.round(t.protein) + "g / " + PROT_GOAL + "g", protPct, protColor],
-                  ["Quemado", t.burn > 0 ? t.burn + " kcal" : "—", burnPct, "var(--burn)"],
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[["Ritmo de proteína", paceLabel, pacePct, paceColor],
+                  ["Sueño", sleepScore ? sleepScore + " / 100" : "—", sleepPct, sleepColor],
                   ["Pasos", t.steps ? t.steps.toLocaleString("es-ES") : "—", stepsPct, stepsColor]].map(function(row) {
                   return (
                     <div key={row[0]}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                        <span style={{ fontSize: 10.5, color: "var(--mid)" }}>{row[0]}</span>
-                        <span className="num" style={{ fontSize: 10.5, color: row[3], fontWeight: 600 }}>{row[1]}</span>
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, color: "var(--mid)" }}>{row[0]}</span>
+                        <span className="num" style={{ fontSize: 11, color: row[3], fontWeight: 600 }}>{row[1]}</span>
                       </div>
                       <div className="bar"><div className="bar-fill" style={{ width: row[2] + "%", background: row[3] }} /></div>
                     </div>
