@@ -1,3 +1,27 @@
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
+
+async function getTokens() {
+  const r = await fetch(SUPABASE_URL + "/rest/v1/oura_tokens?id=eq.andres&select=access_token,refresh_token", {
+    headers: { apikey: SUPABASE_KEY, Authorization: "Bearer " + SUPABASE_KEY },
+  });
+  const rows = await r.json();
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+async function saveTokens(access, refresh) {
+  await fetch(SUPABASE_URL + "/rest/v1/oura_tokens?id=eq.andres", {
+    method: "PATCH",
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: "Bearer " + SUPABASE_KEY,
+      "Content-Type": "application/json",
+      Prefer: "return=minimal",
+    },
+    body: JSON.stringify({ access_token: access, refresh_token: refresh, updated_at: new Date().toISOString() }),
+  });
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -16,68 +40,28 @@ export default async function handler(req, res) {
 
   const base = "https://api.ouraring.com/v2/usercollection/";
 
-  let refreshDebug = null;
-
-  async function refreshToken() {
-    const refreshTokenVal = process.env.OURA_REFRESH_TOKEN;
-    if (!refreshTokenVal) {
-      refreshDebug = { step: "no_refresh_token_env" };
-      return null;
-    }
-
-    const clientId = process.env.OURA_CLIENT_ID;
-    const clientSecret = process.env.OURA_CLIENT_SECRET;
-    const attempts = [];
-
-    // Attempt 1: Basic auth header
+  async function refreshToken(currentRefresh) {
     try {
-      const basic = Buffer.from(clientId + ":" + clientSecret).toString("base64");
-      const r1 = await fetch("https://api.ouraring.com/oauth/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Authorization": "Basic " + basic,
-        },
-        body: new URLSearchParams({
-          grant_type: "refresh_token",
-          refresh_token: refreshTokenVal,
-        }),
-      });
-      const d1 = await r1.json();
-      attempts.push({ method: "basic_auth", status: r1.status, body: d1 });
-      if (d1.access_token) {
-        refreshDebug = { attempts: attempts, success: "basic_auth" };
-        return { access_token: d1.access_token, refresh_token: d1.refresh_token };
-      }
-    } catch (e) {
-      attempts.push({ method: "basic_auth", exception: e.message });
-    }
-
-    // Attempt 2: credentials in body with redirect_uri
-    try {
-      const r2 = await fetch("https://api.ouraring.com/oauth/token", {
+      const r = await fetch("https://api.ouraring.com/oauth/token", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
           grant_type: "refresh_token",
-          refresh_token: refreshTokenVal,
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: process.env.OURA_REDIRECT_URI || "",
+          refresh_token: currentRefresh,
+          client_id: process.env.OURA_CLIENT_ID,
+          client_secret: process.env.OURA_CLIENT_SECRET,
+          redirect_uri: process.env.OURA_REDIRECT_URI,
         }),
       });
-      const d2 = await r2.json();
-      attempts.push({ method: "body_with_redirect", status: r2.status, body: d2 });
-      if (d2.access_token) {
-        refreshDebug = { attempts: attempts, success: "body_with_redirect" };
-        return { access_token: d2.access_token, refresh_token: d2.refresh_token };
+      const data = await r.json();
+      if (data.access_token && data.refresh_token) {
+        await saveTokens(data.access_token, data.refresh_token);
+        return data.access_token;
       }
+      return null;
     } catch (e) {
-      attempts.push({ method: "body_with_redirect", exception: e.message });
+      return null;
     }
-
-    refreshDebug = { attempts: attempts, refresh_prefix: refreshTokenVal.substring(0, 12) + "..." };
-    return null;
   }
 
   async function fetchAll(token) {
@@ -91,22 +75,21 @@ export default async function handler(req, res) {
   }
 
   try {
-    let token = process.env.OURA_ACCESS_TOKEN || process.env.OURA_TOKEN;
-    if (!token) return res.status(401).json({ error: "No token" });
+    const tokens = await getTokens();
+    if (!tokens) return res.status(500).json({ error: "No tokens in DB" });
 
+    let token = tokens.access_token;
     let { actRes, sleepRes, workoutRes } = await fetchAll(token);
 
-    let newTokenInfo = null;
     if (actRes.status === 401 || sleepRes.status === 401 || workoutRes.status === 401) {
-      const refreshed = await refreshToken();
-      if (refreshed) {
-        newTokenInfo = refreshed;
-        const retry = await fetchAll(refreshed.access_token);
+      const newAccess = await refreshToken(tokens.refresh_token);
+      if (newAccess) {
+        const retry = await fetchAll(newAccess);
         actRes = retry.actRes;
         sleepRes = retry.sleepRes;
         workoutRes = retry.workoutRes;
       } else {
-        return res.status(401).json({ error: "Token expired and refresh failed. Re-authorize via /api/oura?action=login", refresh_debug: refreshDebug });
+        return res.status(401).json({ error: "Refresh failed. Re-authorize via /api/oura?action=login" });
       }
     }
 
@@ -116,20 +99,11 @@ export default async function handler(req, res) {
       workoutRes.json(),
     ]);
 
-    const result = {
+    return res.status(200).json({
       activity: actData.data && actData.data[0] ? actData.data[0] : null,
       sleep: sleepData.data && sleepData.data[0] ? sleepData.data[0] : null,
       workouts: workoutData.data || [],
-    };
-
-    if (newTokenInfo) {
-      result._token_refreshed = true;
-      result._new_access_token = newTokenInfo.access_token;
-      result._new_refresh_token = newTokenInfo.refresh_token;
-      result._note = "Token was refreshed automatically. Update OURA_ACCESS_TOKEN and OURA_REFRESH_TOKEN in Vercel with these new values for persistence.";
-    }
-
-    return res.status(200).json(result);
+    });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
