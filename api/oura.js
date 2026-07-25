@@ -39,6 +39,7 @@ export default async function handler(req, res) {
   }
 
   const base = "https://api.ouraring.com/v2/usercollection/";
+  let lastRefreshDebug = null;
 
   async function refreshToken(currentRefresh) {
     try {
@@ -54,12 +55,30 @@ export default async function handler(req, res) {
         }),
       });
       const data = await r.json();
+      lastRefreshDebug = {
+        oura_status: r.status,
+        oura_body: data,
+        refresh_used_prefix: (currentRefresh || "").substring(0, 12) + "...",
+        redirect_uri: process.env.OURA_REDIRECT_URI,
+      };
       if (data.access_token && data.refresh_token) {
-        await saveTokens(data.access_token, data.refresh_token);
+        const saveRes = await fetch(SUPABASE_URL + "/rest/v1/oura_tokens?id=eq.andres", {
+          method: "PATCH",
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: "Bearer " + SUPABASE_KEY,
+            "Content-Type": "application/json",
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({ access_token: data.access_token, refresh_token: data.refresh_token, updated_at: new Date().toISOString() }),
+        });
+        lastRefreshDebug.supabase_save_status = saveRes.status;
+        lastRefreshDebug.supabase_save_body = await saveRes.json();
         return data.access_token;
       }
       return null;
     } catch (e) {
+      lastRefreshDebug = { exception: e.message };
       return null;
     }
   }
@@ -89,7 +108,7 @@ export default async function handler(req, res) {
         sleepRes = retry.sleepRes;
         workoutRes = retry.workoutRes;
       } else {
-        return res.status(401).json({ error: "Refresh failed. Re-authorize via /api/oura?action=login" });
+        return res.status(401).json({ error: "Refresh failed. Re-authorize via /api/oura?action=login", debug: lastRefreshDebug });
       }
     }
 
