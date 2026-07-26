@@ -51,7 +51,6 @@ export default async function handler(req, res) {
           refresh_token: currentRefresh,
           client_id: process.env.OURA_CLIENT_ID,
           client_secret: process.env.OURA_CLIENT_SECRET,
-          redirect_uri: process.env.OURA_REDIRECT_URI,
         }),
       });
       const data = await r.json();
